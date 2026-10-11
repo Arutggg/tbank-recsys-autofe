@@ -1,0 +1,23 @@
+# --- ядро ---
+numpy>=1.26,<2.1
+pandas>=2.2
+pyarrow>=16.0
+scipy>=1.13
+numba>=0.60          # JIT для single-pass движка фичей (критично, не опционально)
+polars>=1.0          # быстрая подготовка данных / groupby для ручного baseline
+
+# --- модели ---
+lightgbm>=4.4
+catboost>=1.2.5
+scikit-learn>=1.5
+
+# --- бейзлайны автогенерации фичей ---
+featuretools>=1.31   # DFS baseline
+
+# --- отчёт / графики ---
+matplotlib>=3.9
+tqdm>=4.66
+pyyaml>=6.0
+
+# --- тесты ---
+pytest>=8.0

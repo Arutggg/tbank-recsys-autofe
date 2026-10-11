@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+data/
+reports/figures/*.png
+reports/*.pdf
+.pytest_cache/
+*.parquet
