@@ -27,9 +27,56 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numba
 import numpy as np
 
-from .log import EventLog, QuerySet
+from .log import UNKNOWN, EventLog, QuerySet
+
+
+@numba.njit(cache=True, nogil=True)
+def _asof_attr_lookup(q_item, q_t, offsets, idx, ev_t, ev_val, out):
+    """Значение атрибута айтема, известное НА МОМЕНТ запроса.
+
+    Для каждой пары (айтем, t) берётся атрибут последнего события ЭТОГО
+    айтема строго раньше t. Внутри слайса айтема события уже упорядочены
+    по времени, поэтому достаточно бинарного поиска.
+    """
+    for r in range(q_item.shape[0]):
+        it = q_item[r]
+        if it < 0:
+            out[r] = -1
+            continue
+        lo, hi = offsets[it], offsets[it + 1]
+        t = q_t[r]
+        a, b = lo, hi
+        while a < b:
+            m = (a + b) // 2
+            if ev_t[idx[m]] < t:
+                a = m + 1
+            else:
+                b = m
+        out[r] = ev_val[idx[a - 1]] if a > lo else -1
+
+
+@numba.njit(cache=True, nogil=True)
+def _fill_csr(item, cursor, idx):
+    """Заполнение CSR. В JIT, а не в Python: цикл идёт по всем событиям,
+    и на логе в 10 млн строк чистый Python добавляет десятки секунд."""
+    for i in range(item.shape[0]):     # лог отсортирован по времени ->
+        k = item[i]                    # внутри айтема порядок сохраняется
+        idx[cursor[k]] = i
+        cursor[k] += 1
+
+
+def _item_time_csr(log: EventLog):
+    """CSR-раскладка событий по айтемам с сохранением временного порядка."""
+    counts = np.zeros(log.n_items + 1, dtype=np.int64)
+    np.add.at(counts, log.item.astype(np.int64) + 1, 1)
+    offsets = np.cumsum(counts)
+    cursor = np.ascontiguousarray(offsets[:-1].copy())
+    idx = np.empty(int(offsets[-1]), dtype=np.int64)
+    _fill_csr(log.item, cursor, idx)
+    return offsets, idx
 
 
 @dataclass
@@ -69,7 +116,20 @@ class TaskConfig:
     #: полупериод повтора вообще идентифицируем. При негативах из
     #: популярности 97% строк имеют нулевую историю user-item, и признак
     #: различает лишь «видел / не видел», что от полупериода не зависит.
+    #: "mixed" — ОСНОВНОЙ протокол: имитация настоящего ретривера.
+    #: Кандидаты собираются из трёх источников так же, как их собирает
+    #: продакшен-ретривер: история пользователя, айтемы той же категории,
+    #: популярное. Причина — замерено, что при негативах только по
+    #: популярности задача вырождается: один бинарный признак «видел ли
+    #: юзер этот айтем» даёт AUC 0.798 при NDCG@10 0.546, потому что лишь
+    #: 2% негативов вообще встречались пользователю. На таком протоколе все
+    #: разумные наборы признаков упираются в один потолок, и сравнивать
+    #: нечего. При негативах из истории тот же признак даёт AUC 0.404,
+    #: то есть ярлык исчезает полностью.
     neg_source: str = "popularity"
+    #: доли источников для neg_source="mixed": история / категория / популярность
+    mix_history: float = 0.4
+    mix_category: float = 0.3
     seed: int = 0
 
 
@@ -114,6 +174,9 @@ def build_queries(
         neg_items = rng.choice(sampleable, size=(n_pos, k), p=p_sampleable).astype(np.int32)
     elif task.neg_source == "user_history":
         neg_items = _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng)
+    elif task.neg_source == "mixed":
+        neg_items = _negatives_mixed(log, pos_idx, k, sampleable, p_sampleable,
+                                     task, train_t_end, rng)
     else:
         raise ValueError(f"неизвестный neg_source: {task.neg_source}")
 
@@ -129,14 +192,20 @@ def build_queries(
     flat[:, 1:] = neg_items
     i_q = flat.ravel()
 
-    # атрибуты айтема-кандидата: берём как свойство айтема, а не события.
-    # Для датасетов с меняющимися во времени свойствами загрузчик обязан
-    # отдать as-of значения; см. datasets/retailrocket.py
+    # Атрибуты айтема-кандидата разрешаются AS OF момента запроса.
+    #
+    # Наивный вариант «айтем -> последнее известное значение» корректен
+    # только когда атрибуты статичны. В RetailRocket они меняются во
+    # времени, и тогда кандидату в январе приписывается категория,
+    # присвоенная в апреле. Это тихая утечка: она не ловится проверкой
+    # агрегатов, потому что происходит в джойне атрибутов, а не в них.
+    offsets, idx = _item_time_csr(log)
     attrs = {}
     for name, col in log.attrs.items():
-        lookup = np.full(log.n_items, -1, dtype=np.int32)
-        lookup[log.item] = col               # последнее известное значение
-        attrs[name] = lookup[i_q]
+        out = np.empty(len(i_q), dtype=np.int32)
+        _asof_attr_lookup(i_q, t_q.astype(np.int64), offsets, idx,
+                          log.t, col, out)
+        attrs[name] = out
 
     return QuerySet(t=t_q.astype(np.int64), user=u_q.astype(np.int32), item=i_q,
                     y=y_q, group=g_q, attrs=attrs)
@@ -165,6 +234,67 @@ def _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng):
             need = k - len(hist)
             filler = rng.choice(sampleable, need, p=p_sampleable)
             out[row] = np.concatenate([hist, filler])
+    return out
+
+
+def _negatives_mixed(log, pos_idx, k, sampleable, p_sampleable, task,
+                     train_t_end, rng):
+    """Негативы как у настоящего ретривера: история + категория + популярность.
+
+    Доли задаются mix_history / mix_category, остаток идёт на популярность.
+    Отображение айтем -> категория строится ТОЛЬКО по train-периоду: иначе
+    через выбор негативов просачивается информация о будущем.
+    """
+    n_hist = int(round(k * task.mix_history))
+    n_cat = int(round(k * task.mix_category))
+    n_pop = k - n_hist - n_cat
+
+    # айтем -> категория, по train-периоду
+    cat_col = log.attrs.get("cat")
+    item_cat = np.full(log.n_items, -1, dtype=np.int32)
+    if cat_col is not None:
+        tm = (log.t < train_t_end) & (cat_col >= 0)
+        item_cat[log.item[tm]] = cat_col[tm]
+    by_cat: dict[int, np.ndarray] = {}
+    if cat_col is not None:
+        order_c = np.argsort(item_cat, kind="stable")
+        sorted_c = item_cat[order_c]
+        for c in np.unique(sorted_c[sorted_c >= 0]):
+            lo, hi = np.searchsorted(sorted_c, [c, c + 1])
+            by_cat[int(c)] = order_c[lo:hi].astype(np.int32)
+
+    order = np.argsort(log.user, kind="stable")
+    u_sorted = log.user[order]
+    bounds = np.searchsorted(u_sorted, np.arange(log.n_users + 1))
+
+    out = np.empty((len(pos_idx), k), dtype=np.int32)
+    for row, ei in enumerate(pos_idx):
+        u, t_pos, i_pos = log.user[ei], log.t[ei], log.item[ei]
+        picked: list[np.ndarray] = []
+
+        # 1) из истории пользователя (строго до момента позитива)
+        sl = order[bounds[u]:bounds[u + 1]]
+        hist = np.unique(log.item[sl[log.t[sl] < t_pos]])
+        hist = hist[hist != i_pos]
+        take = min(n_hist, len(hist))
+        if take:
+            picked.append(rng.choice(hist, take, replace=False))
+
+        # 2) из той же категории, что и позитив
+        c = int(item_cat[i_pos]) if item_cat[i_pos] >= 0 else -1
+        pool = by_cat.get(c)
+        if pool is not None and len(pool) > 1:
+            cand = pool[pool != i_pos]
+            take_c = min(n_cat, len(cand))
+            if take_c:
+                picked.append(rng.choice(cand, take_c, replace=False))
+
+        # 3) остаток — популярность
+        have = sum(len(x) for x in picked)
+        need = k - have
+        if need > 0:
+            picked.append(rng.choice(sampleable, need, p=p_sampleable))
+        out[row] = np.concatenate(picked)[:k]
     return out
 
 

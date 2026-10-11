@@ -94,3 +94,38 @@ def test_parse_numeric_properties(raw, expected):
         assert np.isnan(got)
     else:
         assert got == pytest.approx(expected)
+
+
+def test_candidate_attributes_resolved_asof():
+    """Атрибут айтема-кандидата берётся на момент ЗАПРОСА, не последний известный.
+
+    Это тот же класс утечки, что и в джойне свойств, но на стороне
+    построения кандидатов. Если здесь взять последнее значение, кандидату
+    в январе достанется категория, присвоенная в апреле.
+    """
+    from afe.eval import TaskConfig, build_queries
+    from afe.log import EventLog
+
+    n = 60
+    t = np.arange(n, dtype=np.int64) * 86400
+    item = np.zeros(n, dtype=np.int32)
+    item[n // 2:] = 1
+    user = (np.arange(n) % 5).astype(np.int32)
+    etype = np.zeros(n, dtype=np.int8)
+    etype[::3] = 2
+    # категория айтема 0 меняется на середине периода: 0 -> 7
+    cat = np.zeros(n, dtype=np.int32)
+    cat[(item == 0) & (t > t[n // 4])] = 7
+
+    log = EventLog(t=t, user=user, item=item, etype=etype,
+                   attrs={"cat": cat}, etype_names=["view", "cart", "purchase"],
+                   n_users=5, n_items=2, attr_cardinality={"cat": 8})
+
+    q = build_queries(log, int(t[0]), int(t[-1]) + 1,
+                      TaskConfig(target_etype=2, n_negatives=1, seed=0),
+                      train_t_end=int(t[-1]) + 1)
+
+    early = (q.item == 0) & (q.t <= t[n // 4])
+    if early.any():
+        assert set(np.unique(q.attrs["cat"][early])) <= {0, -1}, \
+            "ранним кандидатам досталась категория из будущего"

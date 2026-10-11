@@ -108,13 +108,15 @@ METHODS = ["popularity", "hand", "hand_keys_decay", "compiler_L0",
 
 
 def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
-        n_negatives=23, n_trials=12, seed=0, verbose=True) -> dict:
+        n_negatives=23, n_trials=12, seed=0, neg_source="mixed",
+        verbose=True) -> dict:
     cfg = SyntheticConfig(n_events=n_events, n_users=20_000, n_items=5_000, seed=seed)
     log, truth = generate(cfg)
     if verbose:
         print(log.describe())
 
-    task = TaskConfig(target_etype=2, n_negatives=n_negatives, seed=seed)
+    task = TaskConfig(target_etype=2, n_negatives=n_negatives, seed=seed,
+                      neg_source=neg_source)
     splits = build_splits(log, SplitConfig(), task,
                           max_positives_per_window=n_positives,
                           max_positives_train=n_positives_train)
@@ -156,7 +158,8 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
     return {
         "config": {"n_events": n_events, "n_positives": n_positives,
                    "n_positives_train": n_positives_train,
-                   "n_negatives": n_negatives, "n_trials": n_trials, "seed": seed},
+                   "n_negatives": n_negatives, "n_trials": n_trials,
+                   "neg_source": neg_source, "seed": seed},
         "meta": {},
         "results": [
             {"name": r.name, "n_features": r.n_features,
@@ -173,6 +176,11 @@ def report(res: dict) -> None:
     W = 104
     print("\n" + "=" * W)
     print("БЕНЧМАРК: компилятор против затюненного ручного бустинга")
+    ns = res.get("config", {}).get("neg_source", "?")
+    note = {"mixed": "имитация ретривера: история + категория + популярность",
+            "popularity": "ВЫРОЖДЕННЫЙ: один признак «видел» даёт AUC 0.80",
+            "user_history": "негативы только из истории пользователя"}.get(ns, "")
+    print(f"протокол негативов: {ns}  ({note})")
     print("=" * W)
     hdr = (f"{'метод':<18}{'призн.':>8}{'AUC':>9}{'logloss':>10}{'NDCG@10':>10}"
            f"{'Recall@10':>11}{'MRR':>8}{'фичи,с':>9}{'тюнинг,с':>10}{'чел.-ч':>8}")
@@ -208,12 +216,20 @@ if __name__ == "__main__":
     ap.add_argument("--n-negatives", type=int, default=23)
     ap.add_argument("--n-trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--neg-source", default="mixed",
+                    choices=["mixed", "popularity", "user_history"],
+                    help="mixed — имитация ретривера (основной протокол); "
+                         "popularity — вырожденный, см. эксперимент по диагностике")
     a = ap.parse_args()
     res = run(n_events=a.n_events, n_positives=a.n_positives,
               n_positives_train=a.n_positives_train,
-              n_negatives=a.n_negatives, n_trials=a.n_trials, seed=a.seed)
+              n_negatives=a.n_negatives, n_trials=a.n_trials, seed=a.seed,
+              neg_source=a.neg_source)
     report(res)
     OUT.mkdir(exist_ok=True)
-    (OUT / "e03_benchmark.json").write_text(
-        json.dumps(res, indent=2, ensure_ascii=False))
-    print("результаты: reports/e03_benchmark.json")
+    # отдельный файл на протокол: вырожденный прогон сохраняется как
+    # документированный диагноз, а не затирается основным
+    name = ("e03_benchmark.json" if a.neg_source == "mixed"
+            else f"e03_benchmark_{a.neg_source}.json")
+    (OUT / name).write_text(json.dumps(res, indent=2, ensure_ascii=False))
+    print(f"результаты: reports/{name}")
