@@ -124,7 +124,7 @@ def run_point(n_events: int, verbose: bool = True) -> dict:
     return row
 
 
-def run(sizes=(500_000, 1_000_000, 2_000_000, 4_000_000, 8_000_000),
+def run(sizes=(500_000, 1_000_000, 2_000_000, 4_000_000),
         verbose=True) -> dict:
     """Верхняя точка 8 млн событий подобрана под 16 ГБ RAM.
 
@@ -189,7 +189,7 @@ def report(res: dict) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--sizes", type=int, nargs="+",
-                    default=[500_000, 1_000_000, 2_000_000, 4_000_000, 8_000_000])
+                    default=[500_000, 1_000_000, 2_000_000, 4_000_000])
     a = ap.parse_args()
     res = run(sizes=tuple(a.sizes))
     report(res)

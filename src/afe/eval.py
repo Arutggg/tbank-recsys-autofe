@@ -401,14 +401,65 @@ def all_metrics(y, score, group, proba=None, ks=(1, 3, 5, 10)) -> dict[str, floa
     return m
 
 
+def per_group_values(
+    y: np.ndarray, score: np.ndarray, group: np.ndarray, metric: str = "ndcg@10"
+) -> np.ndarray:
+    """Значение метрики НА КАЖДОЙ группе отдельно.
+
+    NDCG@k, Recall@k и MRR — это средние по группам, поэтому их бутстрэп
+    сводится к ресэмплингу готовых чисел и не требует пересчёта метрики.
+    """
+    bounds = _group_bounds(group)
+    n_groups = len(bounds) - 1
+    out = np.full(n_groups, np.nan)
+    k = int(metric.split("@")[1]) if "@" in metric else 0
+    for gi in range(n_groups):
+        lo, hi = bounds[gi], bounds[gi + 1]
+        s_, y_ = score[lo:hi], y[lo:hi]
+        pos = np.flatnonzero(y_ == 1)
+        if len(pos) != 1:
+            continue
+        sp = s_[pos[0]]
+        r = np.count_nonzero(s_ > sp) + (np.count_nonzero(s_ == sp) - 1) / 2.0 + 1.0
+        if metric == "mrr":
+            out[gi] = 1.0 / r
+        elif metric.startswith("recall@"):
+            out[gi] = float(r <= k)
+        elif metric.startswith("ndcg@"):
+            out[gi] = 1.0 / np.log2(r + 1.0) if r <= k else 0.0
+    return out[~np.isnan(out)]
+
+
 def bootstrap_ci(
-    y, score, group, metric: str = "auc", n_boot: int = 200, alpha: float = 0.05, seed: int = 0
+    y, score, group, metric: str = "auc", n_boot: int = 200, alpha: float = 0.05,
+    seed: int = 0,
 ) -> tuple[float, float, float]:
-    """Бутстрэп по ГРУППАМ (не по строкам) — строки внутри группы зависимы.
+    """Бутстрэп ПО ГРУППАМ (строки внутри группы зависимы).
 
     Возвращает (точечная оценка, нижняя граница, верхняя граница).
+
+    Реализация разделена на два пути, и это не микрооптимизация.
+    Прямолинейный вариант пересобирал массивы заново на каждой из 200
+    итераций — для 2922 групп это около 584 тысяч итераций интерпретатора
+    на одну метрику, однопоточно, при простаивающих ядрах. Метрики,
+    являющиеся средними по группам, считаются один раз на группу, после
+    чего бутстрэп сводится к матричному ресэмплингу: 200 x N индексов
+    одним вызовом numpy.
+
+    AUC не раскладывается в среднее по группам (это U-статистика над всеми
+    парами), поэтому для него остаётся честный пересчёт на каждой выборке.
     """
     rng = np.random.default_rng(seed)
+
+    if metric != "auc":
+        vals = per_group_values(y, score, group, metric)
+        if len(vals) == 0:
+            return float("nan"), float("nan"), float("nan")
+        idx = rng.integers(0, len(vals), size=(n_boot, len(vals)))
+        boot = vals[idx].mean(axis=1)
+        return (float(vals.mean()), float(np.quantile(boot, alpha / 2)),
+                float(np.quantile(boot, 1 - alpha / 2)))
+
     bounds = _group_bounds(group)
     n_groups = len(bounds) - 1
     slices = [(bounds[i], bounds[i + 1]) for i in range(n_groups)]
@@ -416,14 +467,10 @@ def bootstrap_ci(
     def compute(idx) -> float:
         yy = np.concatenate([y[lo:hi] for lo, hi in (slices[i] for i in idx)])
         ss = np.concatenate([score[lo:hi] for lo, hi in (slices[i] for i in idx)])
-        gg = np.concatenate([np.full(hi - lo, j) for j, (lo, hi) in
-                             enumerate(slices[i] for i in idx)])
-        if metric == "auc":
-            return auc(yy, ss)
-        return ranking_metrics(yy, ss, gg)[metric]
+        return auc(yy, ss)
 
-    point = compute(np.arange(n_groups))
-    vals = np.array([compute(rng.integers(0, n_groups, n_groups)) for _ in range(n_boot)])
-    lo = float(np.quantile(vals, alpha / 2))
-    hi = float(np.quantile(vals, 1 - alpha / 2))
-    return float(point), lo, hi
+    point = auc(y, score)
+    vals = np.array([compute(rng.integers(0, n_groups, n_groups))
+                     for _ in range(n_boot)])
+    return (float(point), float(np.quantile(vals, alpha / 2)),
+            float(np.quantile(vals, 1 - alpha / 2)))

@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field
 
 import numpy as np
@@ -40,7 +41,15 @@ class GBDTConfig:
     max_depth: int = -1
     early_stopping_rounds: int = 100
     seed: int = 0
-    n_jobs: int = 8
+    #: Число потоков LightGBM. По умолчанию половина ядер, а не все.
+    #:
+    #: Причина измерена на этой машине: MacBook Air M2 пассивно охлаждаем,
+    #: и при длительной нагрузке на все восемь ядер macOS уходит в
+    #: троттлинг — kernel_task начинает занимать до 180% CPU, принудительно
+    #: охлаждая систему, и полезная пропускная способность падает примерно
+    #: вчетверо. Половина ядер держит машину в тепловом бюджете и на
+    #: длинных прогонах даёт БОЛЬШЕ суммарной работы, чем попытка занять всё.
+    n_jobs: int = max(1, (os.cpu_count() or 8) // 2)
 
     def to_lgb(self) -> dict:
         return {

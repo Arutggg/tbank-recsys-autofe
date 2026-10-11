@@ -49,7 +49,7 @@ from afe.splits import build_splits  # noqa: E402
 OUT = Path(__file__).resolve().parents[1] / "reports"
 
 
-def run(n_events=600_000, neg_source="mixed", seed=0, verbose=True) -> dict:
+def run(n_events=400_000, neg_source="mixed", seed=0, verbose=True) -> dict:
     cfg = SyntheticConfig(n_events=n_events, n_users=20_000, n_items=5_000, seed=seed)
     log, _ = generate(cfg)
     splits = build_splits(

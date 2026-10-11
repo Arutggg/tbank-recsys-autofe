@@ -142,7 +142,7 @@ def plausible_mask(fs: FeatureSet) -> np.ndarray:
     return mask
 
 
-def run(n_events=600_000, n_trials=4, k_values=(50, 150),
+def run(n_events=400_000, n_trials=3, k_values=(50, 150),
         agent_seeds=(0, 1, 2), seed=0, verbose=True) -> dict:
     """Бюджет подобран так, чтобы эксперимент считался за разумное время.
 
