@@ -189,3 +189,75 @@ def test_hand_baseline_is_also_leak_free():
     np.testing.assert_array_equal(np.isnan(full), np.isnan(truncated))
     m = ~np.isnan(full)
     np.testing.assert_allclose(full[m], truncated[m], rtol=1e-6, atol=1e-6)
+
+
+def _derived_reference(out, fs, n_prim):
+    """Прямолинейный расчёт уровня 1 — эталон для блочной реализации.
+
+    Медленный и кэш-недружественный, но очевидно соответствующий
+    определению: именно с ним сверяется оптимизированный путь.
+    """
+    ref = np.empty((out.shape[0], len(fs.derived)), dtype=np.float64)
+    for j, d in enumerate(fs.derived):
+        la = np.log1p(np.maximum(out[:, d.a].astype(np.float64), 0.0))
+        lb = np.log1p(np.maximum(out[:, d.b].astype(np.float64), 0.0))
+        if d.op == "lift":
+            lc = np.log1p(np.maximum(out[:, d.c].astype(np.float64), 0.0))
+            ld = np.log1p(np.maximum(out[:, d.d].astype(np.float64), 0.0))
+            ref[:, j] = la + ld - lb - lc
+        else:
+            ref[:, j] = la - lb
+    return ref
+
+
+def test_blocked_derived_matches_naive_reference():
+    """Блочный уровень 1 обязан совпасть с прямолинейным расчётом.
+
+    Переписывание было ради скорости: на реальном прогоне уровень 1 занимал
+    4417 секунд против 29 секунд на сам проход по логу, потому что чтение
+    столбцов из матрицы, хранящейся по строкам, било мимо кэша. После
+    блочной перестановки отношение стало меньше единицы. Такая оптимизация
+    обязана быть покрыта сверкой с определением, иначе ошибка в ней прошла
+    бы незамеченной и испортила бы почти половину признаков.
+    """
+    from afe.engine import FeatureCompiler
+    from afe.schema import EnumerationConfig, Schema, enumerate_features
+
+    log = make_log(n=3000, n_users=60, n_items=80)
+    q = make_queries(log, m=500)
+    schema = Schema(user_cols=["user"], item_cols=["item", "cat"],
+                    etype_names=log.etype_names)
+    fs = enumerate_features(schema, EnumerationConfig())
+    assert len(fs.derived) > 100
+
+    comp = FeatureCompiler(fs, n_etypes=N_ETYPES, dtype=np.float64,
+                           state_dtype=np.float64)
+    comp.DERIVED_BLOCK = 128          # много блоков: проверяются и границы
+    X = comp.transform(build_stream(log, q), verbose=False)
+
+    n_prim = len(fs.primitives)
+    ref = _derived_reference(X, fs, n_prim)
+    got = X[:, n_prim:]
+    np.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-10)
+
+
+def test_derived_block_size_does_not_change_values():
+    """Результат не должен зависеть от размера блока."""
+    from afe.engine import FeatureCompiler
+    from afe.schema import EnumerationConfig, Schema, enumerate_features
+
+    log = make_log(n=2000, n_users=40, n_items=50)
+    q = make_queries(log, m=300)
+    schema = Schema(user_cols=["user"], item_cols=["item", "cat"],
+                    etype_names=log.etype_names)
+    fs = enumerate_features(schema, EnumerationConfig())
+    stream = build_stream(log, q)
+
+    outs = []
+    for block in (64, 1000, 10_000_000):
+        comp = FeatureCompiler(fs, n_etypes=N_ETYPES, dtype=np.float64,
+                               state_dtype=np.float64)
+        comp.DERIVED_BLOCK = block
+        outs.append(comp.transform(stream, verbose=False))
+    np.testing.assert_allclose(outs[0], outs[1], rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(outs[0], outs[2], rtol=1e-12, atol=1e-12)
