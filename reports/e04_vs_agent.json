@@ -1,0 +1,145 @@
+{
+  "part1": {
+    "proposals": [
+      {
+        "status": "IN",
+        "feature": "число событий юзера за 1/7/30 дней",
+        "maps_to": "dcount[user|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "число событий айтема за 1/7/30 дней",
+        "maps_to": "dcount[item|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "сколько раз юзер взаимодействовал с этим айтемом",
+        "maps_to": "dcount[userxitem|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "активность юзера в категории айтема",
+        "maps_to": "dcount[userxcat|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "время с последнего события юзера",
+        "maps_to": "recency[user]"
+      },
+      {
+        "status": "IN",
+        "feature": "время с последнего взаимодействия с этим айтемом",
+        "maps_to": "recency[userxitem]"
+      },
+      {
+        "status": "IN",
+        "feature": "возраст аккаунта юзера",
+        "maps_to": "age[user]"
+      },
+      {
+        "status": "IN",
+        "feature": "время с первого появления айтема",
+        "maps_to": "age[item]"
+      },
+      {
+        "status": "IN",
+        "feature": "конверсия айтема из просмотра в покупку",
+        "maps_to": "conversion[item]"
+      },
+      {
+        "status": "IN",
+        "feature": "склонность юзера доводить до покупки",
+        "maps_to": "conversion[user]"
+      },
+      {
+        "status": "IN",
+        "feature": "доля категории в активности юзера",
+        "maps_to": "share[userxcat/user]"
+      },
+      {
+        "status": "IN",
+        "feature": "популярность айтема",
+        "maps_to": "dcount[item|any|inf]"
+      },
+      {
+        "status": "IN",
+        "feature": "общая активность юзера за всё время",
+        "maps_to": "dcount[user|any|inf]"
+      },
+      {
+        "status": "IN",
+        "feature": "популярность категории",
+        "maps_to": "dcount[cat|any|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "аффинити юзера к бренду",
+        "maps_to": "dcount[userxbrand|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "аффинити юзера к ценовому сегменту",
+        "maps_to": "dcount[userxprice_bucket|e|hl]"
+      },
+      {
+        "status": "IN",
+        "feature": "растёт ли интерес: короткое окно / длинное",
+        "maps_to": "trend[hl_short/hl_long]"
+      },
+      {
+        "status": "IN",
+        "feature": "аффинити с поправкой на популярность (PMI)",
+        "maps_to": "lift[...]"
+      },
+      {
+        "status": "IN",
+        "feature": "средняя давность истории юзера",
+        "maps_to": "dage_mean[user|e|hl]"
+      },
+      {
+        "status": "OUT",
+        "feature": "совпадает ли категория айтема с категорией ПОСЛЕДНЕГО просмотра",
+        "maps_to": "последовательность, порядок событий"
+      },
+      {
+        "status": "OUT",
+        "feature": "item-item co-visitation: что покупают вместе с этим",
+        "maps_to": "мета-путь длины 3: user->item->user->item"
+      },
+      {
+        "status": "OUT",
+        "feature": "косинус между эмбеддингами юзера и айтема (ALS / word2vec)",
+        "maps_to": "обучаемые представления"
+      },
+      {
+        "status": "OUT",
+        "feature": "длина сессии, позиция в сессии, dwell time",
+        "maps_to": "сессионная структура"
+      },
+      {
+        "status": "OUT",
+        "feature": "час дня, день недели, праздник",
+        "maps_to": "календарные признаки"
+      },
+      {
+        "status": "OUT",
+        "feature": "абсолютная цена и цена относительно средней по категории",
+        "maps_to": "агрегация ЧИСЛОВОГО значения, а не ключа"
+      },
+      {
+        "status": "OUT",
+        "feature": "марковские переходы между категориями",
+        "maps_to": "последовательность, порядок событий"
+      },
+      {
+        "status": "OUT",
+        "feature": "признаки из текста и картинок товара",
+        "maps_to": "контент"
+      }
+    ],
+    "n_in_grammar": 19,
+    "n_out_of_grammar": 8,
+    "share_in_grammar": 0.7037037037037037
+  },
+  "part2": null
+}

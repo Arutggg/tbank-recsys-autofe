@@ -94,10 +94,20 @@ class EnumerationConfig:
     max_derived: int = 40_000
 
 
-def enumerate_features(schema: Schema, cfg: EnumerationConfig | None = None) -> FeatureSet:
-    """Построить полный план признаков из одной только схемы данных."""
+def enumerate_features(
+    schema: Schema,
+    cfg: EnumerationConfig | None = None,
+    keys: list[tuple[str, ...]] | None = None,
+) -> FeatureSet:
+    """Построить полный план признаков из одной только схемы данных.
+
+    keys — необязательное ограничение набора ключей. Нужно для абляций:
+    например, зафиксировать ровно те ключи, по которым считает ручной
+    baseline, и сравнить только семейство временных ядер, не смешивая
+    эффект ядер с эффектом более богатого набора мета-путей.
+    """
     cfg = cfg or EnumerationConfig()
-    keys = schema.key_specs(cfg.max_key_arity)
+    keys = list(keys) if keys is not None else schema.key_specs(cfg.max_key_arity)
 
     etypes: list[int] = []
     if cfg.per_etype:

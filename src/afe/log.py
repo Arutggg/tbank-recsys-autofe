@@ -185,19 +185,34 @@ class Stream:
         return len(self.t)
 
 
-def build_stream(log: EventLog, queries: QuerySet | None = None) -> Stream:
+def build_stream(
+    log: EventLog,
+    queries: QuerySet | None = None,
+    queries_after_events: bool = False,
+) -> Stream:
     """Склеить лог и запросы в один неубывающий по времени поток.
 
     При равных timestamp запрос ставится РАНЬШЕ события. Это гарантирует,
     что признаки запроса в момент t зависят только от событий с t' < t,
     в том числе когда само целевое взаимодействие лежит в логе на том же t.
+
+    queries_after_events=True переворачивает этот порядок и ВНОСИТ УТЕЧКУ:
+    запрос начинает видеть событие, которое произошло в тот же момент, то
+    есть в том числе собственное целевое взаимодействие. Режим нужен
+    исключительно как позитивный контроль в аудите утечки
+    (experiments/e05_leak_audit.py).
+
+    Разница между корректным и протекающим вариантом — одна константа в
+    ключе сортировки. Именно поэтому утечку такого рода легко внести
+    случайно и невозможно заметить по метрике: она её только улучшает.
     """
     n = log.n_events
     m = 0 if queries is None else len(queries)
 
     # secondary key: 0 для запросов, 1 для событий -> при равных t запрос первый
     t_all = log.t if m == 0 else np.concatenate([queries.t, log.t])
-    sec = np.concatenate([np.zeros(m, np.int8), np.ones(n, np.int8)])
+    q_rank = np.int8(2) if queries_after_events else np.int8(0)
+    sec = np.concatenate([np.full(m, q_rank, np.int8), np.ones(n, np.int8)])
     qpos_all = np.concatenate([np.arange(m, dtype=np.int32),
                                np.full(n, -1, dtype=np.int32)])
     is_q_all = np.concatenate([np.ones(m, bool), np.zeros(n, bool)])

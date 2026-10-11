@@ -165,3 +165,27 @@ def test_leak_detector_actually_detects_leak():
     leaky = compute(log, q_leaky, prims)
     assert not np.allclose(np.nan_to_num(honest), np.nan_to_num(leaky)), \
         "детектор утечки не видит заведомую утечку"
+
+
+def test_hand_baseline_is_also_leak_free():
+    """Ручной baseline должен быть так же свободен от утечки, как компилятор.
+
+    Иначе сравнение нечестно в любую из сторон: если у baseline есть
+    утечка, он завышен; если дисциплина у него строже, он занижен.
+    """
+    from afe.hand import HandFeatures
+
+    log = make_log(n=4000)
+    cut = log.time_quantile(0.6)
+    q_all = make_queries(log, m=400)
+    q = q_all.select(q_all.t < cut)
+
+    def feats(lg):
+        hf = HandFeatures(cat_col="cat", n_etypes=N_ETYPES, with_nunique=True)
+        return hf.transform(build_stream(lg, q), verbose=False)
+
+    full = feats(log)
+    truncated = feats(log.slice_until(cut))
+    np.testing.assert_array_equal(np.isnan(full), np.isnan(truncated))
+    m = ~np.isnan(full)
+    np.testing.assert_allclose(full[m], truncated[m], rtol=1e-6, atol=1e-6)
