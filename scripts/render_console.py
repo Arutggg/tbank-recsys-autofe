@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -77,9 +76,20 @@ def _line_color(text: str) -> tuple[int, int, int]:
 
 def render(log_path: Path, command: str, out_path: Path,
            head: int | None = None, tail: int | None = None,
+           lines_range: tuple[int, int] | None = None,
            title: str | None = None) -> Path:
+    """lines_range задаёт произвольный кусок лога (1-индексация, включительно).
+
+    Нужен, когда важная часть вывода не в начале и не в конце: например,
+    в e08 сравнение джойнов идёт первым блоком, а эффект разрыва
+    предсказания — последним, и одной картинкой их не показать, не
+    превысив высоту страницы A4.
+    """
     raw = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    if head:
+    if lines_range:
+        a, b = lines_range
+        raw = raw[a - 1:b]
+    elif head:
         raw = raw[:head]
     elif tail:
         raw = raw[-tail:]
@@ -137,6 +147,7 @@ def render(log_path: Path, command: str, out_path: Path,
 #: итоговая часть вывода — таблица результатов и вывод, — а не весь лог;
 #: полный лог лежит рядом в logs/ и ничего не теряется.
 TARGETS = [
+    ("logs/e08.log", "make e08", "08a_цена_тихой_утечки.png", None, (4, 15)),
     ("logs/e01.log", "make e01", "01_окна_против_затуханий.png", 22),
     ("logs/e02.log", "make e02", "02_временные_масштабы.png", 30),
     ("logs/e05.log", "make e05", "05_аудит_утечки.png", 26),
@@ -146,18 +157,21 @@ TARGETS = [
     ("logs/e03_retailrocket.log", "make e03-rr", "03_бенчмарк_retailrocket.png", 24),
     ("logs/e03_synthetic.log", "make e03", "03_бенчмарк_синтетика.png", 24),
     ("logs/tests.log", "make test", "00_тесты.png", 8),
+    ("logs/e08.log", "make e08", "08_диагностика_протокола.png", 34),
 ]
 
 
 def render_all(verbose: bool = True) -> list[Path]:
     made = []
-    for rel, cmd, name, tail in TARGETS:
+    for entry in TARGETS:
+        rel, cmd, name, tail = entry[:4]
+        rng = entry[4] if len(entry) > 4 else None
         p = ROOT / rel
         if not p.exists():
             if verbose:
                 print(f"  {rel}: нет лога, пропуск")
             continue
-        out = render(p, cmd, OUT / name, tail=tail)
+        out = render(p, cmd, OUT / name, tail=tail, lines_range=rng)
         made.append(out)
         if verbose:
             print(f"  {out.relative_to(ROOT)}")

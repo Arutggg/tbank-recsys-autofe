@@ -3,14 +3,14 @@ PY := ./.venv/bin/python
 export PYTHONPATH := src
 
 
-.PHONY: help setup lint test screenshots e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
+.PHONY: help setup lint test screenshots e01 e02 e03 e03-rr e04 e05 e06 e07 e08 figures fill report all data clean
 
 help:
 	@echo "setup    — окружение и зависимости"
 	@echo "lint     — ruff"
 	@echo "test     — линтер + тесты корректности (включая аудит утечки)"
 	@echo "data     — скачать RetailRocket (нужен токен Kaggle)"
-	@echo "e01..e07 — отдельные эксперименты"
+	@echo "e01..e08 — отдельные эксперименты"
 	@echo "figures  — графики по сохранённым результатам"
 	@echo "screenshots — вывод экспериментов в виде картинок терминала"
 	@echo "all      — тесты, все эксперименты, графики"
@@ -63,12 +63,16 @@ e06:
 e07:
 	@mkdir -p logs
 	$(PY) experiments/e07_budget.py 2>&1 | tee logs/e07.log
+e08:
+	@mkdir -p logs
+	$(PY) experiments/e08_protocol_diagnostics.py 2>&1 | tee logs/e08.log
 
 figures:
 	$(PY) -m afe.plots
 
 screenshots:
 	$(PY) scripts/render_console.py --all
+	$(PY) scripts/render_code.py
 
 fill:
 	$(PY) scripts/fill_results.py
@@ -76,7 +80,7 @@ fill:
 report: figures screenshots fill
 	$(PY) scripts/build_pdf.py
 
-all: test e01 e02 e05 e06 e07 e04 e03 e03-rr figures report
+all: test e01 e02 e08 e05 e06 e07 e04 e03 e03-rr figures report
 
 clean:
 	rm -rf reports/*.json reports/figures/*.png .pytest_cache

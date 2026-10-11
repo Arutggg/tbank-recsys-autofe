@@ -1,0 +1,86 @@
+{
+  "part_a": {
+    "rows": [
+      {
+        "mode": "as-of (корректно)",
+        "cat_coverage": 0.7969820919560799,
+        "price_coverage": 0.8930783684634361
+      },
+      {
+        "mode": "последнее значение (УТЕЧКА)",
+        "cat_coverage": 0.9658916314087406,
+        "price_coverage": 0.9658916314087406
+      }
+    ],
+    "extra_knowledge_cat": 0.16890953945266063
+  },
+  "part_b": {
+    "rows": [
+      {
+        "neg_source": "popularity",
+        "auc_seen": 0.9750310801938845,
+        "ndcg10_seen": 0.8780091389283489,
+        "share_negatives_seen": 0.013319085334339075
+      },
+      {
+        "neg_source": "mixed",
+        "auc_seen": 0.8777151517691265,
+        "ndcg10_seen": 0.39554186854119083,
+        "share_negatives_seen": 0.20795094218385507
+      },
+      {
+        "neg_source": "user_history",
+        "auc_seen": 0.7848517230300744,
+        "ndcg10_seen": 0.39935304336024496,
+        "share_negatives_seen": 0.39367779966195926
+      }
+    ]
+  },
+  "part_c": {
+    "n_purchases": 17713,
+    "share_with_prior_touch": 0.9758934116185852,
+    "median_gap_minutes": 3.95,
+    "distribution": [
+      {
+        "label": "< 1 минуты",
+        "share_of_all_purchases": 0.05662507762660193
+      },
+      {
+        "label": "< 5 минут",
+        "share_of_all_purchases": 0.5652910291876023
+      },
+      {
+        "label": "< 1 часа",
+        "share_of_all_purchases": 0.9063964319990967
+      },
+      {
+        "label": "< 1 дня",
+        "share_of_all_purchases": 0.9611020154688646
+      },
+      {
+        "label": "< 7 дней",
+        "share_of_all_purchases": 0.9735222717777903
+      }
+    ],
+    "gap_effect": [
+      {
+        "gap_days": 0,
+        "auc_seen": 0.8777151517691265,
+        "ndcg10_seen": 0.39554186854119083,
+        "positives_with_history": 0.9633812457221081
+      },
+      {
+        "gap_days": 1,
+        "auc_seen": 0.4952157454357513,
+        "ndcg10_seen": 0.055186084696785084,
+        "positives_with_history": 0.15160848733744012
+      },
+      {
+        "gap_days": 7,
+        "auc_seen": 0.4732081744402073,
+        "ndcg10_seen": 0.019905717670389938,
+        "positives_with_history": 0.07186858316221766
+      }
+    ]
+  }
+}
