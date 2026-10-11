@@ -41,6 +41,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from afe.datasets.retailrocket import RetailRocketConfig, load as load_rr  # noqa: E402
 from afe.datasets.synthetic import SyntheticConfig, generate          # noqa: E402
 from afe.dsl import FeatureSet                                        # noqa: E402
 from afe.engine import FeatureCompiler                                # noqa: E402
@@ -81,12 +82,14 @@ def _build(name, log, splits, schema, stream, verbose):
         return X, ["log_pop_train"], time.perf_counter() - t0
 
     if name == "hand":
-        hf = HandFeatures(cat_col="cat", n_etypes=log.n_etypes, with_nunique=True)
+        hf = HandFeatures(cat_col=schema.item_cols[1], n_etypes=log.n_etypes,
+                          with_nunique=True)
         X = hf.transform(stream, verbose=verbose)
         return X, hf.feature_names_, time.perf_counter() - t0
 
     if name == "hand_keys_decay":
-        keys = [("user",), ("item",), ("user", "item"), ("user", "cat")]
+        keys = [("user",), ("item",), ("user", "item"),
+                ("user", schema.item_cols[1])]
         fs = enumerate_features(schema, EnumerationConfig(), keys=keys)
         X = FeatureCompiler(fs, n_etypes=log.n_etypes).transform(stream, verbose=verbose)
         return X, fs.names(log.etype_names), time.perf_counter() - t0
@@ -107,26 +110,40 @@ METHODS = ["popularity", "hand", "hand_keys_decay", "compiler_L0",
            "compiler", "compiler_selected"]
 
 
-def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
-        n_negatives=23, n_trials=12, seed=0, neg_source="mixed",
-        verbose=True) -> dict:
-    cfg = SyntheticConfig(n_events=n_events, n_users=20_000, n_items=5_000, seed=seed)
-    log, truth = generate(cfg)
-    if verbose:
+def load_dataset(dataset: str, n_events: int, seed: int, verbose: bool):
+    """Синтетический полигон или RetailRocket — одинаковый интерфейс дальше."""
+    if dataset == "synthetic":
+        log, _ = generate(SyntheticConfig(n_events=n_events, n_users=20_000,
+                                          n_items=5_000, seed=seed))
+        schema = Schema(user_cols=["user"],
+                        item_cols=["item", "cat", "brand", "price_bucket"],
+                        etype_names=log.etype_names)
+    elif dataset == "retailrocket":
+        log = load_rr(RetailRocketConfig(), verbose=verbose)
+        schema = Schema(user_cols=["user"],
+                        item_cols=["item", "cat", "parent_cat", "price_bucket"],
+                        etype_names=log.etype_names)
+    else:
+        raise ValueError(dataset)
+    if verbose and dataset == "synthetic":
         print(log.describe())
+    return log, schema
+
+
+def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
+        n_negatives=23, n_negatives_eval=49, n_trials=12, seed=0,
+        neg_source="mixed", dataset="synthetic", verbose=True) -> dict:
+    log, schema = load_dataset(dataset, n_events, seed, verbose)
 
     task = TaskConfig(target_etype=2, n_negatives=n_negatives, seed=seed,
                       neg_source=neg_source)
     splits = build_splits(log, SplitConfig(), task,
                           max_positives_per_window=n_positives,
-                          max_positives_train=n_positives_train)
+                          max_positives_train=n_positives_train,
+                          n_negatives_eval=n_negatives_eval)
     if verbose:
         print("\nвременные сплиты:")
         print(splits.describe())
-
-    schema = Schema(user_cols=["user"],
-                    item_cols=["item", "cat", "brand", "price_bucket"],
-                    etype_names=log.etype_names)
 
     stream = build_stream(log, splits.queries)
     results = []
@@ -156,9 +173,11 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
                   f"({r.train_seconds:.0f} с)", flush=True)
 
     return {
-        "config": {"n_events": n_events, "n_positives": n_positives,
+        "config": {"dataset": dataset, "n_events": log.n_events,
+                   "n_positives": n_positives,
                    "n_positives_train": n_positives_train,
-                   "n_negatives": n_negatives, "n_trials": n_trials,
+                   "n_negatives": n_negatives,
+                   "n_negatives_eval": n_negatives_eval, "n_trials": n_trials,
                    "neg_source": neg_source, "seed": seed},
         "meta": {},
         "results": [
@@ -176,7 +195,9 @@ def report(res: dict) -> None:
     W = 104
     print("\n" + "=" * W)
     print("БЕНЧМАРК: компилятор против затюненного ручного бустинга")
-    ns = res.get("config", {}).get("neg_source", "?")
+    cfgr = res.get("config", {})
+    print(f"датасет: {cfgr.get('dataset', '?')}, событий: {cfgr.get('n_events', 0):,}")
+    ns = cfgr.get("neg_source", "?")
     note = {"mixed": "имитация ретривера: история + категория + популярность",
             "popularity": "ВЫРОЖДЕННЫЙ: один признак «видел» даёт AUC 0.80",
             "user_history": "негативы только из истории пользователя"}.get(ns, "")
@@ -213,9 +234,15 @@ if __name__ == "__main__":
     ap.add_argument("--n-events", type=int, default=1_000_000)
     ap.add_argument("--n-positives", type=int, default=4_000)
     ap.add_argument("--n-positives-train", type=int, default=14_000)
-    ap.add_argument("--n-negatives", type=int, default=23)
+    ap.add_argument("--n-negatives", type=int, default=23,
+                    help="негативов на ОБУЧЕНИИ")
+    ap.add_argument("--n-negatives-eval", type=int, default=49,
+                    help="негативов на val/test: набор кандидатов должен быть "
+                         "реалистичным, иначе Recall@10 насыщается")
     ap.add_argument("--n-trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--dataset", default="synthetic",
+                    choices=["synthetic", "retailrocket"])
     ap.add_argument("--neg-source", default="mixed",
                     choices=["mixed", "popularity", "user_history"],
                     help="mixed — имитация ретривера (основной протокол); "
@@ -223,13 +250,14 @@ if __name__ == "__main__":
     a = ap.parse_args()
     res = run(n_events=a.n_events, n_positives=a.n_positives,
               n_positives_train=a.n_positives_train,
-              n_negatives=a.n_negatives, n_trials=a.n_trials, seed=a.seed,
-              neg_source=a.neg_source)
+              n_negatives=a.n_negatives, n_negatives_eval=a.n_negatives_eval,
+              n_trials=a.n_trials, seed=a.seed,
+              neg_source=a.neg_source, dataset=a.dataset)
     report(res)
     OUT.mkdir(exist_ok=True)
     # отдельный файл на протокол: вырожденный прогон сохраняется как
     # документированный диагноз, а не затирается основным
-    name = ("e03_benchmark.json" if a.neg_source == "mixed"
-            else f"e03_benchmark_{a.neg_source}.json")
+    suffix = "" if a.neg_source == "mixed" else f"_{a.neg_source}"
+    name = f"e03_benchmark_{a.dataset}{suffix}.json"
     (OUT / name).write_text(json.dumps(res, indent=2, ensure_ascii=False))
     print(f"результаты: reports/{name}")

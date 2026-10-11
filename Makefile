@@ -2,7 +2,7 @@
 PY := ./.venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: help setup test e01 e02 e03 e04 e05 e06 e07 figures all data clean
+.PHONY: help setup test e01 e02 e03 e03-rr e04 e05 e06 e07 figures report all data clean
 
 help:
 	@echo "setup    — окружение и зависимости"
@@ -33,7 +33,11 @@ e01:
 e02:
 	$(PY) experiments/e02_timescales.py
 e03:
-	$(PY) experiments/e03_benchmark.py
+	$(PY) experiments/e03_benchmark.py --dataset synthetic
+e03-rr:
+	$(PY) experiments/e03_benchmark.py --dataset retailrocket \
+	  --n-positives 100000 --n-positives-train 100000 \
+	  --n-negatives-eval 49 --n-trials 8
 e04:
 	$(PY) experiments/e04_vs_agent.py
 e05:
@@ -46,7 +50,10 @@ e07:
 figures:
 	$(PY) -m afe.plots
 
-all: test e01 e02 e03 e04 e05 e06 e07 figures
+report: figures
+	$(PY) scripts/build_pdf.py
+
+all: test e01 e02 e05 e06 e07 e04 e03 e03-rr figures report
 
 clean:
 	rm -rf reports/*.json reports/figures/*.png .pytest_cache

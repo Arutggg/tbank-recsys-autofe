@@ -54,6 +54,7 @@ def build_splits(
     task: TaskConfig | None = None,
     max_positives_per_window: int | None = None,
     max_positives_train: int | None = None,
+    n_negatives_eval: int | None = None,
 ) -> Splits:
     """Три временных окна кандидатов, склеенных в один QuerySet.
 
@@ -69,12 +70,25 @@ def build_splits(
     # train получает больше позитивов: при тысячах признаков объём обучающей
     # выборки прямо определяет, выживет ли широкий набор признаков. val и
     # test достаточно сделать такими, чтобы метрика была устойчивой.
+    # Число негативов на обучении и на оценке разделено намеренно.
+    #
+    # Обучению много негативов не нужно: градиентный бустинг и так видит
+    # достаточно отрицательных примеров, а память растёт линейно по строкам.
+    # А вот ТЕСТОВЫЙ набор кандидатов должен быть реалистичным: при 23
+    # негативах Recall@10 считается по топ-10 из 24 кандидатов, то есть по
+    # почти половине списка, и метрика насыщается (замерено: ручной набор
+    # на RetailRocket давал Recall@10 = 0.9911, что уже ничего не
+    # различает). Настоящий ретривер отдаёт сотни кандидатов.
     windows = [(int(log.t[0]), t1), (t1, t2), (t2, t_end)]
     caps = [max_positives_train or max_positives_per_window,
             max_positives_per_window, max_positives_per_window]
+    negs = [task.n_negatives,
+            n_negatives_eval or task.n_negatives,
+            n_negatives_eval or task.n_negatives]
     parts = []
-    for (lo, hi), cap in zip(windows, caps):
+    for (lo, hi), cap, nneg in zip(windows, caps, negs):
         tk = TaskConfig(**{**task.__dict__})
+        tk.n_negatives = nneg
         if cap is not None:
             tk.max_positives = cap
         parts.append(build_queries(log, lo, hi, tk, train_t_end=t1))

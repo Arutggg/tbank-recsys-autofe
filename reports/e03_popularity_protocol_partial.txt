@@ -1,0 +1,9 @@
+[модель] popularity: 1 признаков
+    test AUC=0.7255  logloss=0.15905  ndcg@10=0.3669  recall@10=0.7658  (42 с)
+[модель] hand: 98 признаков
+    test AUC=0.9805  logloss=0.04898  ndcg@10=0.8893  recall@10=0.9490  (53 с)
+[модель] hand_keys_decay: 720 признаков
+    test AUC=0.9806  logloss=0.04870  ndcg@10=0.8896  recall@10=0.9473  (370 с)
+[модель] compiler_L0: 1040 признаков
+    test AUC=0.9807  logloss=0.04901  ndcg@10=0.8898  recall@10=0.9497  (900 с)
+[модель] compiler: 1944 признаков

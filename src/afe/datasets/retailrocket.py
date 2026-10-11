@@ -94,20 +94,56 @@ def _kcore(df: pd.DataFrame, cfg: RetailRocketConfig) -> pd.DataFrame:
     return df
 
 
+PROPERTY_FILES = ("item_properties_part1.csv", "item_properties_part2.csv")
+_CHUNK = 2_000_000
+
+
 def _read_properties(cfg: RetailRocketConfig, prop: str) -> pd.DataFrame:
-    """Все записи заданного свойства из обеих частей файла, по времени."""
+    """Записи заданного свойства из обеих частей файла, по времени.
+
+    Чтение идёт ЧАНКАМИ. Два файла свойств весят 852 МБ, и загрузка их
+    целиком в pandas со строковыми значениями занимает несколько гигабайт —
+    на машине с 16 ГБ это съедает бюджет, который нужен под состояние
+    движка. Фильтр по свойству применяется к каждому чанку, поэтому в
+    памяти оседает только нужная часть.
+    """
     frames = []
-    for part in ("item_properties_part1.csv", "item_properties_part2.csv"):
+    for part in PROPERTY_FILES:
         path = cfg.root / part
         if not path.exists():
             continue
-        df = pd.read_csv(path)
-        frames.append(df[df["property"] == prop])
+        for chunk in pd.read_csv(path, chunksize=_CHUNK,
+                                 usecols=["timestamp", "itemid", "property", "value"]):
+            sel = chunk[chunk["property"] == prop]
+            if len(sel):
+                frames.append(sel[["timestamp", "itemid", "value"]])
     if not frames:
         return pd.DataFrame(columns=["t", "itemid", "value"])
     out = pd.concat(frames, ignore_index=True)
     out["t"] = (out["timestamp"] // 1000).astype("int64")
     return out[["t", "itemid", "value"]].sort_values("t", kind="stable")
+
+
+def property_census(cfg: RetailRocketConfig, top: int = 15) -> pd.DataFrame:
+    """Какие свойства вообще есть и насколько они заполнены.
+
+    Нужна, чтобы не угадывать, какое свойство является ценой: в документации
+    датасета этого нет, а значения захешированы.
+    """
+    from collections import Counter
+    cnt, items = Counter(), {}
+    for part in PROPERTY_FILES:
+        path = cfg.root / part
+        if not path.exists():
+            continue
+        for chunk in pd.read_csv(path, chunksize=_CHUNK,
+                                 usecols=["itemid", "property", "value"]):
+            cnt.update(chunk["property"].value_counts().to_dict())
+            for prop, grp in chunk.groupby("property", sort=False):
+                items.setdefault(prop, set()).update(grp["itemid"].unique().tolist())
+    rows = [{"property": k, "records": v, "items": len(items.get(k, ()))}
+            for k, v in cnt.most_common(top)]
+    return pd.DataFrame(rows)
 
 
 def _asof_values(
