@@ -58,6 +58,7 @@ OUT = Path(__file__).resolve().parents[1] / "reports"
 #: набор писался и отлаживался, компилятор запускается одной командой.
 #: Колонка нужна, потому что задание про автоматизацию, а не только про метрику.
 HUMAN_HOURS = {
+    "seen": 0.1,
     "popularity": 0.2,
     "hand": 6.0,
     "hand_keys_decay": 0.1,
@@ -73,6 +74,19 @@ def _build(name, log, splits, schema, stream, verbose):
     compiler одновременно это ~2800 столбцов на 480 тысяч строк, то есть
     5.4 ГиБ только под признаки."""
     t0 = time.perf_counter()
+
+    if name == "seen":
+        # Тривиальный ярлык: взаимодействовал ли юзер с этим айтемом раньше.
+        # Это обязательный ориентир калибровки. Именно он показывает,
+        # вырожден ли протокол: при негативах по популярности и нулевом
+        # разрыве предсказания он один даёт NDCG@10 около 0.9, и тогда
+        # любые числа методов рядом с ним ничего не значат.
+        from afe.dsl import ANY_ETYPE, FeatureSet, Primitive
+        fs = FeatureSet([Primitive(("user", "item"), ANY_ETYPE, "dcount",
+                                   float("inf"))], [])
+        v = FeatureCompiler(fs, n_etypes=log.n_etypes).transform(stream, verbose=False)
+        X = (np.nan_to_num(v, nan=0.0) > 0).astype(np.float32)
+        return X, ["seen_before"], time.perf_counter() - t0
 
     if name == "popularity":
         train_mask = log.t < splits.t_train_end
@@ -105,7 +119,7 @@ def _build(name, log, splits, schema, stream, verbose):
     raise ValueError(name)
 
 
-METHODS = ["popularity", "hand", "hand_keys_decay", "compiler_L0",
+METHODS = ["seen", "popularity", "hand", "hand_keys_decay", "compiler_L0",
            "compiler", "compiler_selected"]
 
 

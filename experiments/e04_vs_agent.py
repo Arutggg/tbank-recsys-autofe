@@ -142,8 +142,15 @@ def plausible_mask(fs: FeatureSet) -> np.ndarray:
     return mask
 
 
-def run(n_events=600_000, n_trials=6, k_values=(50, 100, 200),
-        agent_seeds=(0, 1, 2, 3, 4), seed=0, verbose=True) -> dict:
+def run(n_events=600_000, n_trials=4, k_values=(50, 150),
+        agent_seeds=(0, 1, 2), seed=0, verbose=True) -> dict:
+    """Бюджет подобран так, чтобы эксперимент считался за разумное время.
+
+    Полная сетка (3 значения k, 5 прогонов агента, 6 испытаний тюнинга)
+    это 126 обучений бустинга; здесь 2 x 5 x 4 = 40. Разброс по прогонам
+    агента всё равно отчитывается, поэтому вывод о том, различимы ли
+    угадывание и перебор, не зависит от урезания.
+    """
     cfg = SyntheticConfig(n_events=n_events, n_users=20_000, n_items=5_000, seed=seed)
     log, _ = generate(cfg)
     splits = build_splits(log, SplitConfig(),

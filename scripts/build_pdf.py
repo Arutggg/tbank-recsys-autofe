@@ -56,6 +56,8 @@ pre { background: #f7f9fb; border: 0.5px solid #e0e6ec; border-radius: 3px;
       padding: 7pt 9pt; overflow-x: auto; break-inside: avoid; }
 pre code { background: none; padding: 0; font-size: 8pt; line-height: 1.42; }
 img { max-width: 100%; display: block; margin: 8pt auto; }
+/* скриншоты консоли: ограничение по высоте, чтобы страница A4 не ломалась */
+img[src^="data:image/png"] { max-height: 165mm; }
 img.math-block { margin: 9pt auto; max-width: 78%; }
 img.math-inline { display: inline; vertical-align: -0.35em; margin: 0 1pt;
                   max-height: 1.25em; }

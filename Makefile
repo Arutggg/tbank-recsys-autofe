@@ -3,7 +3,7 @@ PY := ./.venv/bin/python
 export PYTHONPATH := src
 
 
-.PHONY: help setup lint test e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
+.PHONY: help setup lint test screenshots e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
 
 help:
 	@echo "setup    — окружение и зависимости"
@@ -12,6 +12,7 @@ help:
 	@echo "data     — скачать RetailRocket (нужен токен Kaggle)"
 	@echo "e01..e07 — отдельные эксперименты"
 	@echo "figures  — графики по сохранённым результатам"
+	@echo "screenshots — вывод экспериментов в виде картинок терминала"
 	@echo "all      — тесты, все эксперименты, графики"
 
 setup:
@@ -24,7 +25,8 @@ lint:
 	$(PY) -m ruff check .
 
 test: lint
-	$(PY) -m pytest tests/ -q
+	@mkdir -p logs
+	$(PY) -m pytest tests/ -q 2>&1 | tee logs/tests.log
 
 data:
 	@test -f ~/.kaggle/kaggle.json || \
@@ -34,31 +36,44 @@ data:
 	  -p data/retailrocket --unzip
 
 e01:
-	$(PY) experiments/e01_window_vs_decay.py
+	@mkdir -p logs
+	$(PY) experiments/e01_window_vs_decay.py 2>&1 | tee logs/e01.log
 e02:
-	$(PY) experiments/e02_timescales.py
+	@mkdir -p logs
+	$(PY) experiments/e02_timescales.py 2>&1 | tee logs/e02.log
 e03:
-	$(PY) experiments/e03_benchmark.py --dataset synthetic
+	@mkdir -p logs
+	$(PY) experiments/e03_benchmark.py --dataset synthetic \
+	  --n-negatives-eval 49 --prediction-gap-days 1 --n-trials 8 2>&1 | tee logs/e03_synthetic.log
 e03-rr:
+	@mkdir -p logs
 	$(PY) experiments/e03_benchmark.py --dataset retailrocket \
 	  --n-positives 100000 --n-positives-train 100000 \
-	  --n-negatives-eval 49 --n-trials 8
+	  --n-negatives-eval 49 --prediction-gap-days 1 --n-trials 8 \
+	  2>&1 | tee logs/e03_retailrocket.log
 e04:
-	$(PY) experiments/e04_vs_agent.py
+	@mkdir -p logs
+	$(PY) experiments/e04_vs_agent.py 2>&1 | tee logs/e04.log
 e05:
-	$(PY) experiments/e05_leak_audit.py
+	@mkdir -p logs
+	$(PY) experiments/e05_leak_audit.py 2>&1 | tee logs/e05.log
 e06:
-	$(PY) experiments/e06_scaling.py
+	@mkdir -p logs
+	$(PY) experiments/e06_scaling.py 2>&1 | tee logs/e06.log
 e07:
-	$(PY) experiments/e07_budget.py
+	@mkdir -p logs
+	$(PY) experiments/e07_budget.py 2>&1 | tee logs/e07.log
 
 figures:
 	$(PY) -m afe.plots
 
+screenshots:
+	$(PY) scripts/render_console.py --all
+
 fill:
 	$(PY) scripts/fill_results.py
 
-report: figures fill
+report: figures screenshots fill
 	$(PY) scripts/build_pdf.py
 
 all: test e01 e02 e05 e06 e07 e04 e03 e03-rr figures report
