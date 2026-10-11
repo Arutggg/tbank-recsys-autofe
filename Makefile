@@ -2,7 +2,7 @@
 PY := ./.venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: help setup test e01 e02 e03 e03-rr e04 e05 e06 e07 figures report all data clean
+.PHONY: help setup test e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
 
 help:
 	@echo "setup    — окружение и зависимости"
@@ -50,7 +50,10 @@ e07:
 figures:
 	$(PY) -m afe.plots
 
-report: figures
+fill:
+	$(PY) scripts/fill_results.py
+
+report: figures fill
 	$(PY) scripts/build_pdf.py
 
 all: test e01 e02 e05 e06 e07 e04 e03 e03-rr figures report

@@ -132,11 +132,13 @@ def load_dataset(dataset: str, n_events: int, seed: int, verbose: bool):
 
 def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
         n_negatives=23, n_negatives_eval=49, n_trials=12, seed=0,
-        neg_source="mixed", dataset="synthetic", verbose=True) -> dict:
+        neg_source="mixed", prediction_gap_days=1.0, dataset="synthetic",
+        verbose=True) -> dict:
     log, schema = load_dataset(dataset, n_events, seed, verbose)
 
     task = TaskConfig(target_etype=2, n_negatives=n_negatives, seed=seed,
-                      neg_source=neg_source)
+                      neg_source=neg_source,
+                      prediction_gap_s=int(prediction_gap_days * 86400))
     splits = build_splits(log, SplitConfig(), task,
                           max_positives_per_window=n_positives,
                           max_positives_train=n_positives_train,
@@ -178,6 +180,7 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
                    "n_positives_train": n_positives_train,
                    "n_negatives": n_negatives,
                    "n_negatives_eval": n_negatives_eval, "n_trials": n_trials,
+                   "prediction_gap_days": prediction_gap_days,
                    "neg_source": neg_source, "seed": seed},
         "meta": {},
         "results": [
@@ -202,6 +205,10 @@ def report(res: dict) -> None:
             "popularity": "ВЫРОЖДЕННЫЙ: один признак «видел» даёт AUC 0.80",
             "user_history": "негативы только из истории пользователя"}.get(ns, "")
     print(f"протокол негативов: {ns}  ({note})")
+    gap = cfgr.get("prediction_gap_days", 0)
+    print(f"разрыв предсказания: {gap:g} дн."
+          + ("  (ВНИМАНИЕ: без разрыва задача сводится к детекции намерения "
+             "внутри сессии)" if gap == 0 else ""))
     print("=" * W)
     hdr = (f"{'метод':<18}{'призн.':>8}{'AUC':>9}{'logloss':>10}{'NDCG@10':>10}"
            f"{'Recall@10':>11}{'MRR':>8}{'фичи,с':>9}{'тюнинг,с':>10}{'чел.-ч':>8}")
@@ -241,6 +248,9 @@ if __name__ == "__main__":
                          "реалистичным, иначе Recall@10 насыщается")
     ap.add_argument("--n-trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--prediction-gap-days", type=float, default=1.0,
+                    help="признаки считаются на t - gap; 0 = постановка "
+                         "внутрисессионной детекции намерения")
     ap.add_argument("--dataset", default="synthetic",
                     choices=["synthetic", "retailrocket"])
     ap.add_argument("--neg-source", default="mixed",
@@ -252,12 +262,15 @@ if __name__ == "__main__":
               n_positives_train=a.n_positives_train,
               n_negatives=a.n_negatives, n_negatives_eval=a.n_negatives_eval,
               n_trials=a.n_trials, seed=a.seed,
-              neg_source=a.neg_source, dataset=a.dataset)
+              neg_source=a.neg_source, dataset=a.dataset,
+              prediction_gap_days=a.prediction_gap_days)
     report(res)
     OUT.mkdir(exist_ok=True)
     # отдельный файл на протокол: вырожденный прогон сохраняется как
     # документированный диагноз, а не затирается основным
     suffix = "" if a.neg_source == "mixed" else f"_{a.neg_source}"
+    if a.prediction_gap_days == 0:
+        suffix += "_nogap"
     name = f"e03_benchmark_{a.dataset}{suffix}.json"
     (OUT / name).write_text(json.dumps(res, indent=2, ensure_ascii=False))
     print(f"результаты: reports/{name}")

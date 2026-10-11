@@ -126,6 +126,21 @@ class TaskConfig:
     #: разумные наборы признаков упираются в один потолок, и сравнивать
     #: нечего. При негативах из истории тот же признак даёт AUC 0.404,
     #: то есть ярлык исчезает полностью.
+    #: РАЗРЫВ ПРЕДСКАЗАНИЯ, секунды. Признаки считаются на момент
+    #: (t_позитива - gap), а не на сам момент покупки.
+    #:
+    #: Зачем. На RetailRocket замерено: у 97.6% покупок было предыдущее
+    #: касание ТОГО ЖЕ айтема, причём у 56.5% — менее чем за 5 минут до
+    #: покупки, у 90.6% — менее чем за час; медианный разрыв 4 минуты.
+    #: Без gap задача сводится к «юзер только что смотрел этот товар ->
+    #: купит», то есть к детекции намерения внутри сессии. Рекомендательная
+    #: система, срабатывающая только после того, как человек сам нашёл
+    #: товар, рекомендовать не умеет — и метрика такой постановки (AUC
+    #: 0.991 у ручного набора) ничего не говорит о качестве рекомендаций.
+    #:
+    #: gap = 1 день ставит настоящий вопрос: что юзер купит завтра,
+    #: если известно только то, что было до сегодня.
+    prediction_gap_s: int = 0
     neg_source: str = "popularity"
     #: доли источников для neg_source="mixed": история / категория / популярность
     mix_history: float = 0.4
@@ -173,14 +188,18 @@ def build_queries(
     if task.neg_source == "popularity":
         neg_items = rng.choice(sampleable, size=(n_pos, k), p=p_sampleable).astype(np.int32)
     elif task.neg_source == "user_history":
-        neg_items = _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng)
+        neg_items = _negatives_from_history(log, pos_idx, k, sampleable,
+                                            p_sampleable, rng,
+                                            task.prediction_gap_s)
     elif task.neg_source == "mixed":
         neg_items = _negatives_mixed(log, pos_idx, k, sampleable, p_sampleable,
                                      task, train_t_end, rng)
     else:
         raise ValueError(f"неизвестный neg_source: {task.neg_source}")
 
-    t_q = np.repeat(log.t[pos_idx], group_size)
+    # момент, НА КОТОРЫЙ считаются признаки: сдвинут назад на gap
+    t_feat = log.t[pos_idx] - np.int64(task.prediction_gap_s)
+    t_q = np.repeat(t_feat, group_size)
     u_q = np.repeat(log.user[pos_idx], group_size)
     g_q = np.repeat(np.arange(n_pos, dtype=np.int64), group_size)
 
@@ -211,7 +230,7 @@ def build_queries(
                     y=y_q, group=g_q, attrs=attrs)
 
 
-def _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng):
+def _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng, gap=0):
     """Негативы из прошлой истории пользователя (строго до момента позитива).
 
     Если истории не хватает, добор идёт из популярности, чтобы размер
@@ -223,7 +242,8 @@ def _negatives_from_history(log, pos_idx, k, sampleable, p_sampleable, rng):
     out = np.empty((len(pos_idx), k), dtype=np.int32)
 
     for row, ei in enumerate(pos_idx):
-        u, t_pos, i_pos = log.user[ei], log.t[ei], log.item[ei]
+        u, i_pos = log.user[ei], log.item[ei]
+        t_pos = log.t[ei] - np.int64(gap)      # история берётся на момент признаков
         sl = order[bounds[u]:bounds[u + 1]]
         hist = log.item[sl[log.t[sl] < t_pos]]
         hist = np.unique(hist)
@@ -269,10 +289,11 @@ def _negatives_mixed(log, pos_idx, k, sampleable, p_sampleable, task,
 
     out = np.empty((len(pos_idx), k), dtype=np.int32)
     for row, ei in enumerate(pos_idx):
-        u, t_pos, i_pos = log.user[ei], log.t[ei], log.item[ei]
+        u, i_pos = log.user[ei], log.item[ei]
+        t_pos = log.t[ei] - np.int64(task.prediction_gap_s)
         picked: list[np.ndarray] = []
 
-        # 1) из истории пользователя (строго до момента позитива)
+        # 1) из истории пользователя (строго до момента РАСЧЁТА ПРИЗНАКОВ)
         sl = order[bounds[u]:bounds[u + 1]]
         hist = np.unique(log.item[sl[log.t[sl] < t_pos]])
         hist = hist[hist != i_pos]
