@@ -35,11 +35,11 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.datasets.synthetic import SyntheticConfig, generate       # noqa: E402
-from afe.engine import FeatureCompiler, _factorize_key              # noqa: E402
-from afe.eval import TaskConfig, build_queries                     # noqa: E402
-from afe.hand import HandFeatures, _build_csr                      # noqa: E402
-from afe.log import build_stream                                   # noqa: E402
+from afe.datasets.synthetic import SyntheticConfig, generate  # noqa: E402
+from afe.engine import FeatureCompiler, _factorize_key  # noqa: E402
+from afe.eval import TaskConfig, build_queries  # noqa: E402
+from afe.hand import _build_csr  # noqa: E402
+from afe.log import build_stream  # noqa: E402
 from afe.schema import EnumerationConfig, Schema, enumerate_features  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "reports"

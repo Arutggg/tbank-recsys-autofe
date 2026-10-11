@@ -41,17 +41,16 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.datasets.retailrocket import RetailRocketConfig, load as load_rr  # noqa: E402
-from afe.datasets.synthetic import SyntheticConfig, generate          # noqa: E402
-from afe.dsl import FeatureSet                                        # noqa: E402
-from afe.engine import FeatureCompiler                                # noqa: E402
-from afe.eval import SplitConfig, TaskConfig, bootstrap_ci            # noqa: E402
-from afe.hand import HandFeatures                                     # noqa: E402
-from afe.log import build_stream                                      # noqa: E402
-from afe.model import (evaluate_feature_set,                           # noqa: E402
-                       evaluate_with_selection)
+from afe.datasets.retailrocket import RetailRocketConfig  # noqa: E402
+from afe.datasets.retailrocket import load as load_rr
+from afe.datasets.synthetic import SyntheticConfig, generate  # noqa: E402
+from afe.engine import FeatureCompiler  # noqa: E402
+from afe.eval import SplitConfig, TaskConfig, bootstrap_ci  # noqa: E402
+from afe.hand import HandFeatures  # noqa: E402
+from afe.log import build_stream  # noqa: E402
+from afe.model import evaluate_feature_set, evaluate_with_selection  # noqa: E402
 from afe.schema import EnumerationConfig, Schema, enumerate_features  # noqa: E402
-from afe.splits import build_splits                                   # noqa: E402
+from afe.splits import build_splits  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 
@@ -166,12 +165,22 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
             feature_seconds=fsec, human_hours=HUMAN_HOURS.get(name, float("nan")),
             verbose=verbose,
         )
+        # доверительные интервалы бутстрэпом ПО ГРУППАМ (строки внутри
+        # группы зависимы, бутстрэп по строкам дал бы заниженный интервал)
+        for metric in ("auc", "ndcg@10"):
+            pt, lo, hi = bootstrap_ci(splits.y("test"), r.test_pred,
+                                      splits.group("test"), metric=metric,
+                                      n_boot=200, seed=seed)
+            r.test_metrics[f"{metric}_lo"] = lo
+            r.test_metrics[f"{metric}_hi"] = hi
         results.append(r)
         del X
         if verbose:
             m = r.test_metrics
-            print(f"    test AUC={m['auc']:.4f}  logloss={m['logloss']:.5f}  "
-                  f"ndcg@10={m['ndcg@10']:.4f}  recall@10={m['recall@10']:.4f}  "
+            print(f"    test AUC={m['auc']:.4f} [{m['auc_lo']:.4f}, {m['auc_hi']:.4f}]  "
+                  f"logloss={m['logloss']:.5f}  "
+                  f"ndcg@10={m['ndcg@10']:.4f} "
+                  f"[{m['ndcg@10_lo']:.4f}, {m['ndcg@10_hi']:.4f}]  "
                   f"({r.train_seconds:.0f} с)", flush=True)
 
     return {
@@ -217,10 +226,12 @@ def report(res: dict) -> None:
     base = next((r for r in res["results"] if r["name"] == "hand"), None)
     for r in res["results"]:
         m = r["test"]
+        ci = (f"[{m['ndcg@10_lo']:.4f},{m['ndcg@10_hi']:.4f}]"
+              if "ndcg@10_lo" in m else "")
         print(f"{r['name']:<18}{r['n_features']:>8,}{m['auc']:>9.4f}"
               f"{m['logloss']:>10.5f}{m['ndcg@10']:>10.4f}{m['recall@10']:>11.4f}"
               f"{m['mrr']:>8.4f}{r['feature_seconds']:>9.1f}"
-              f"{r['train_seconds']:>10.0f}{r['human_hours']:>8.1f}")
+              f"{r['train_seconds']:>10.0f}{r['human_hours']:>8.1f}  {ci}")
     if base:
         print("-" * W)
         print(f"{'прирост к hand:':<18}")

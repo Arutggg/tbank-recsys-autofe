@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import numba
 import numpy as np
 
-from .log import UNKNOWN, EventLog, QuerySet
+from .log import EventLog, QuerySet
 
 
 @numba.njit(cache=True, nogil=True)
@@ -265,9 +265,12 @@ def _negatives_mixed(log, pos_idx, k, sampleable, p_sampleable, task,
     Отображение айтем -> категория строится ТОЛЬКО по train-периоду: иначе
     через выбор негативов просачивается информация о будущем.
     """
+    # Доли ЖЕЛАЕМЫЕ, а не гарантированные: если у пользователя мало
+    # истории или категория мелкая, недобор восполняется популярностью.
+    # Так же ведёт себя настоящий ретривер — у холодного пользователя он
+    # отдаёт популярное, потому что больше нечего отдать.
     n_hist = int(round(k * task.mix_history))
     n_cat = int(round(k * task.mix_category))
-    n_pop = k - n_hist - n_cat
 
     # айтем -> категория, по train-периоду
     cat_col = log.attrs.get("cat")
@@ -366,7 +369,6 @@ def ranking_metrics(
     а Recall@k совпадает с HitRate@k.
     """
     bounds = _group_bounds(group)
-    max_k = max(ks)
     ranks = np.empty(len(bounds) - 1, dtype=np.float64)
     for gi in range(len(bounds) - 1):
         lo, hi = bounds[gi], bounds[gi + 1]

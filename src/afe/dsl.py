@@ -145,7 +145,7 @@ class FeatureSet:
         lines = [
             f"примитивов (уровень 0, требуют проход по логу): {len(self.primitives):,}",
             *(f"    {s:<10} {c:>6,}" for s, c in sorted(by_stat.items())),
-            f"  по арности ключа:",
+            "  по арности ключа:",
             *(f"    ключ из {a}: {c:>6,}" for a, c in sorted(by_arity.items())),
             f"производных (уровень 1, арифметика, 0 проходов): {len(self.derived):,}",
             *(f"    {o:<10} {c:>6,}" for o, c in sorted(by_op.items())),

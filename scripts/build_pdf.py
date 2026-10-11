@@ -13,14 +13,14 @@ from __future__ import annotations
 
 import base64
 import re
-import sys
 from io import BytesIO
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import markdown
+import matplotlib.pyplot as plt
 from weasyprint import HTML
 
 ROOT = Path(__file__).resolve().parents[1]

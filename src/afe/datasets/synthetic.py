@@ -37,12 +37,16 @@ purchase) определяется той же силой сигнала: чем
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numba
 import numpy as np
 
 from ..log import EventLog
+
+if TYPE_CHECKING:                      # только для аннотаций, без циклического импорта
+    from ..log import QuerySet
 
 SEC_PER_DAY = 86400.0
 
@@ -185,7 +189,7 @@ def _simulate(
 
         # ---- кандидаты: популярные + ПОДМНОЖЕСТВО недавних, без дублей ----
         m = 0
-        for j in range(n_candidates):
+        for _ in range(n_candidates):
             x = np.random.random()
             lo = 0
             hi = n_items - 1
@@ -405,7 +409,7 @@ def generate_known_optimum(
     beta: float = 1.5,
     intercept: float = -1.0,
     seed: int = 0,
-) -> tuple[EventLog, "QuerySet", dict]:
+) -> tuple[EventLog, QuerySet, dict]:
     """Лог и запросы, в которых оптимальный полупериод равен true_halflife_days.
 
     История событий порождается без временной структуры (однородный

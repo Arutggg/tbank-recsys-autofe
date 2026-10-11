@@ -1,12 +1,12 @@
 """Движок против определения: рекуррента должна совпадать с прямой суммой."""
 from __future__ import annotations
+
 import numpy as np
 import pytest
 
 from afe.dsl import ANY_ETYPE, FeatureSet, Primitive
-from afe.engine import FeatureCompiler, SEC_PER_DAY
-from afe.kernels import (DAY, age_moments_reference, decayed_count_reference,
-                         halflife_to_lambda)
+from afe.engine import SEC_PER_DAY, FeatureCompiler
+from afe.kernels import DAY, age_moments_reference, decayed_count_reference
 from afe.log import EventLog, QuerySet, build_stream
 
 N_ETYPES = 3

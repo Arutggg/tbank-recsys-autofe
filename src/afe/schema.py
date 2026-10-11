@@ -23,7 +23,7 @@ prediction) здесь не конкурент, а подмножество: mes
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .dsl import ANY_ETYPE, Derived, FeatureSet, Primitive
 from .kernels import DEFAULT_HALFLIVES

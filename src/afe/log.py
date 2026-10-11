@@ -87,7 +87,7 @@ class EventLog:
         """Момент времени, отсекающий долю q событий. Для временных сплитов."""
         return int(np.quantile(self.t, q))
 
-    def slice_until(self, t_end: int) -> "EventLog":
+    def slice_until(self, t_end: int) -> EventLog:
         """Префикс лога строго до t_end. Нужен для аудита утечки."""
         k = int(np.searchsorted(self.t, t_end, side="left"))
         return EventLog(
@@ -153,7 +153,7 @@ class QuerySet:
             return self.item
         return self.attrs[name]
 
-    def select(self, mask: np.ndarray) -> "QuerySet":
+    def select(self, mask: np.ndarray) -> QuerySet:
         return QuerySet(
             t=self.t[mask], user=self.user[mask], item=self.item[mask],
             y=self.y[mask], group=self.group[mask],

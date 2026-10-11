@@ -31,11 +31,10 @@ Baseline ручных признаков: добросовестная реал�
 
 from __future__ import annotations
 
-import numpy as np
 import numba
+import numpy as np
 
 from .log import Stream
-from .kernels import DAY
 
 SEC_PER_DAY = 86400.0
 
@@ -226,6 +225,7 @@ class HandFeatures:
 
     def transform(self, stream: Stream, verbose: bool = True) -> np.ndarray:
         import time as _time
+
         from .engine import _factorize_key
 
         t_days = ((stream.t - stream.t[0]) / SEC_PER_DAY).astype(np.float64)
@@ -286,7 +286,6 @@ class HandFeatures:
         """Конверсии и доли — то, что человек считает поверх счётчиков."""
         pos = {n: i for i, n in enumerate(names)}
         extra, extra_names = [], []
-        n_w = len(self.windows)
 
         def log_ratio(a_col: int, b_col: int) -> np.ndarray:
             """Лог-отношение, как в компиляторе: формы признаков должны

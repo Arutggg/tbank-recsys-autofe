@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .dsl import Derived, FeatureSet, Primitive
+from .dsl import FeatureSet
 
 
 @dataclass

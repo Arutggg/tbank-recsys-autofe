@@ -16,8 +16,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from afe.datasets.retailrocket import (RetailRocketConfig, _asof_values,
-                                       _encode, _parse_numeric)
+from afe.datasets.retailrocket import RetailRocketConfig, _asof_values, _encode, _parse_numeric
 
 
 def _events(ts, items):

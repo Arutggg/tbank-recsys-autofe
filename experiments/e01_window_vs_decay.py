@@ -49,9 +49,15 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.kernels import (DAY, DEFAULT_HALFLIVES, TYPICAL_HUMAN_WINDOWS,   # noqa: E402
-                         fit_window_as_decay_mix, format_halflife,
-                         geometric_halflives, halflives_to_lambdas)
+from afe.kernels import (  # noqa: E402
+    DAY,
+    DEFAULT_HALFLIVES,
+    TYPICAL_HUMAN_WINDOWS,
+    fit_window_as_decay_mix,
+    format_halflife,
+    geometric_halflives,
+    halflives_to_lambdas,
+)
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 

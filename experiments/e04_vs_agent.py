@@ -37,15 +37,15 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.datasets.synthetic import SyntheticConfig, generate          # noqa: E402
-from afe.dsl import ANY_ETYPE, FeatureSet                             # noqa: E402
-from afe.engine import FeatureCompiler                                # noqa: E402
-from afe.eval import SplitConfig, TaskConfig, all_metrics             # noqa: E402
-from afe.kernels import DAY                                           # noqa: E402
-from afe.log import build_stream                                      # noqa: E402
-from afe.model import GBDTConfig, fit_gbdt, tune_gbdt                 # noqa: E402
+from afe.datasets.synthetic import SyntheticConfig, generate  # noqa: E402
+from afe.dsl import FeatureSet  # noqa: E402
+from afe.engine import FeatureCompiler  # noqa: E402
+from afe.eval import SplitConfig, TaskConfig, all_metrics  # noqa: E402
+from afe.kernels import DAY  # noqa: E402
+from afe.log import build_stream  # noqa: E402
+from afe.model import GBDTConfig, fit_gbdt, tune_gbdt  # noqa: E402
 from afe.schema import EnumerationConfig, Schema, enumerate_features  # noqa: E402
-from afe.splits import build_splits                                   # noqa: E402
+from afe.splits import build_splits  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 
@@ -147,7 +147,8 @@ def run(n_events=600_000, n_trials=6, k_values=(50, 100, 200),
     cfg = SyntheticConfig(n_events=n_events, n_users=20_000, n_items=5_000, seed=seed)
     log, _ = generate(cfg)
     splits = build_splits(log, SplitConfig(),
-                          TaskConfig(target_etype=2, n_negatives=23, seed=seed),
+                          TaskConfig(target_etype=2, n_negatives=23, seed=seed,
+                                     prediction_gap_s=86400, neg_source="mixed"),
                           max_positives_per_window=3_000, max_positives_train=10_000)
     schema = Schema(user_cols=["user"],
                     item_cols=["item", "cat", "brand", "price_bucket"],

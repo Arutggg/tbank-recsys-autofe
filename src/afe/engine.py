@@ -39,10 +39,10 @@
 
 from __future__ import annotations
 
-import numpy as np
 import numba
+import numpy as np
 
-from .dsl import ANY_ETYPE, Derived, FeatureSet, Primitive
+from .dsl import ANY_ETYPE, FeatureSet
 from .kernels import halflives_to_lambdas
 from .log import Stream
 
@@ -262,7 +262,7 @@ class FeatureCompiler:
         for idx, p in enumerate(self.fs.primitives):
             g = groups.setdefault(p.key, {"items": [], "lambdas": []})
             g["items"].append((idx, p))
-        for key, g in groups.items():
+        for g in groups.values():
             hls = sorted({p.halflife_s for _, p in g["items"] if p.needs_kernel})
             if not hls:
                 hls = [float("inf")]

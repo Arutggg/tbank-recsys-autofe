@@ -93,7 +93,7 @@ def build_splits(
             tk.max_positives = cap
         parts.append(build_queries(log, lo, hi, tk, train_t_end=t1))
 
-    offsets, gshift, idx = [], 0, []
+    gshift, idx = 0, []
     cur = 0
     t_all, u_all, i_all, y_all, g_all = [], [], [], [], []
     attrs_all: dict[str, list] = {k: [] for k in parts[0].attrs}

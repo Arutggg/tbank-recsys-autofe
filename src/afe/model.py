@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 
 import numpy as np
 
@@ -166,6 +166,10 @@ class MethodResult:
     best_iteration: int = 0
     config: dict = field(default_factory=dict)
     human_hours: float = float("nan")   # оценка ручного труда на метод
+    #: предсказания на test. Нужны, чтобы посчитать доверительные интервалы
+    #: бутстрэпом по группам: различия между методами здесь порядка
+    #: 0.001-0.005, и без интервала такие числа ничего не значат.
+    test_pred: object = None
 
     def row(self) -> dict:
         d = {"метод": self.name, "признаков": self.n_features}
@@ -201,7 +205,7 @@ def evaluate_feature_set(
         train_seconds=train_s, best_iteration=int(booster.best_iteration),
         config={k: v for k, v in asdict(cfg).items()
                 if k in SEARCH_SPACE or k == "n_estimators"},
-        human_hours=human_hours,
+        human_hours=human_hours, test_pred=p,
     )
 
 
@@ -283,5 +287,5 @@ def evaluate_with_selection(
         train_seconds=train_s, best_iteration=int(booster.best_iteration),
         config={"selected_k": int(mask.sum()), **{k_: v for k_, v in asdict(cfg).items()
                                                   if k_ in SEARCH_SPACE}},
-        human_hours=human_hours,
+        human_hours=human_hours, test_pred=p,
     )

@@ -38,6 +38,14 @@
   Решающая эмпирическая проверка (сетка масштабов против окон, выбранных
   человеком) делается в основном бенчмарке, где у модели есть все признаки
   сразу, а не по одному.
+
+ПРИМЕЧАНИЕ О ПРОТОКОЛЕ. Здесь намеренно используются негативы по
+популярности и нулевой разрыв предсказания, в отличие от остальных
+экспериментов. Причина: предмет изучения — временные масштабы на
+управляемом полигоне, где все механизмы заданы нами. Смешанные негативы и
+разрыв добавили бы к измерению два дополнительных фактора и смешали бы
+эффект масштаба с эффектом постановки. Выводы этого эксперимента про
+идентифицируемость, а не про абсолютный уровень метрики.
 """
 
 from __future__ import annotations
@@ -51,13 +59,12 @@ from sklearn.linear_model import LogisticRegression
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.datasets.synthetic import (SyntheticConfig, generate,                # noqa: E402
-                                    generate_known_optimum)
-from afe.dsl import ANY_ETYPE, FeatureSet, Primitive                          # noqa: E402
-from afe.engine import FeatureCompiler                                        # noqa: E402
-from afe.eval import SplitConfig, TaskConfig, auc, build_queries, logloss     # noqa: E402
-from afe.kernels import DAY                                                   # noqa: E402
-from afe.log import build_stream                                              # noqa: E402
+from afe.datasets.synthetic import SyntheticConfig, generate, generate_known_optimum  # noqa: E402
+from afe.dsl import ANY_ETYPE, FeatureSet, Primitive  # noqa: E402
+from afe.engine import FeatureCompiler  # noqa: E402
+from afe.eval import SplitConfig, TaskConfig, auc, build_queries, logloss  # noqa: E402
+from afe.kernels import DAY  # noqa: E402
+from afe.log import build_stream  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 

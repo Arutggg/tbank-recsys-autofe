@@ -36,16 +36,15 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from afe.datasets.synthetic import SyntheticConfig, generate          # noqa: E402
-from afe.engine import FeatureCompiler, _factorize_key                # noqa: E402
-from afe.eval import SplitConfig, TaskConfig, all_metrics             # noqa: E402
-from afe.hand import HandFeatures, _build_csr                         # noqa: E402
-from afe.log import build_stream                                      # noqa: E402
-from afe.model import GBDTConfig, fit_gbdt                            # noqa: E402
+from afe.datasets.synthetic import SyntheticConfig, generate  # noqa: E402
+from afe.engine import FeatureCompiler, _factorize_key  # noqa: E402
+from afe.eval import SplitConfig, TaskConfig, all_metrics  # noqa: E402
+from afe.hand import HandFeatures, _build_csr  # noqa: E402
+from afe.log import build_stream  # noqa: E402
+from afe.model import GBDTConfig, fit_gbdt  # noqa: E402
 from afe.schema import EnumerationConfig, Schema, enumerate_features  # noqa: E402
-from afe.select import (features_for_keys, gain_importance,           # noqa: E402
-                        greedy_key_order, key_costs)
-from afe.splits import build_splits                                   # noqa: E402
+from afe.select import features_for_keys, gain_importance, greedy_key_order, key_costs  # noqa: E402
+from afe.splits import build_splits  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[1] / "reports"
 
@@ -55,7 +54,8 @@ def run(n_events=600_000, neg_source="mixed", seed=0, verbose=True) -> dict:
     log, _ = generate(cfg)
     splits = build_splits(
         log, SplitConfig(),
-        TaskConfig(target_etype=2, n_negatives=23, neg_source=neg_source, seed=seed),
+        TaskConfig(target_etype=2, n_negatives=23, neg_source=neg_source,
+                   seed=seed, prediction_gap_s=86400),
         max_positives_per_window=3_000, max_positives_train=10_000)
     schema = Schema(user_cols=["user"],
                     item_cols=["item", "cat", "brand", "price_bucket"],

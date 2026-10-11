@@ -2,11 +2,13 @@
 PY := ./.venv/bin/python
 export PYTHONPATH := src
 
-.PHONY: help setup test e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
+
+.PHONY: help setup lint test e01 e02 e03 e03-rr e04 e05 e06 e07 figures fill report all data clean
 
 help:
 	@echo "setup    — окружение и зависимости"
-	@echo "test     — тесты корректности (включая аудит утечки)"
+	@echo "lint     — ruff"
+	@echo "test     — линтер + тесты корректности (включая аудит утечки)"
 	@echo "data     — скачать RetailRocket (нужен токен Kaggle)"
 	@echo "e01..e07 — отдельные эксперименты"
 	@echo "figures  — графики по сохранённым результатам"
@@ -18,7 +20,10 @@ setup:
 	$(PY) -m pip install -q -r requirements.txt
 	@echo "LightGBM на macOS требует libomp: brew install libomp"
 
-test:
+lint:
+	$(PY) -m ruff check .
+
+test: lint
 	$(PY) -m pytest tests/ -q
 
 data:

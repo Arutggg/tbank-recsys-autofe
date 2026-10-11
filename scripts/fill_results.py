@@ -55,30 +55,42 @@ def section_e03(dataset: str) -> str:
         f"Протокол негативов: `{c.get('neg_source')}`. "
         f"Бюджет тюнинга: {c['n_trials']} испытаний каждому методу.",
         "",
-        "| метод | признаков | AUC | logloss | NDCG@10 | Recall@10 | MRR | фичи, с | чел.-ч |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| метод | признаков | AUC | logloss | NDCG@10 | 95% ДИ для NDCG@10 | Recall@10 | фичи, с | чел.-ч |",
+        "|---|---:|---:|---:|---:|:---:|---:|---:|---:|",
     ]
     base = next((r for r in d["results"] if r["name"] == "hand"), None)
     for r in d["results"]:
         m = r["test"]
         nm = METHOD_RU.get(r["name"], r["name"])
         best = "**" if base and r["name"] != "hand" and m["ndcg@10"] > base["test"]["ndcg@10"] else ""
+        ci = (f"[{m['ndcg@10_lo']:.4f}, {m['ndcg@10_hi']:.4f}]"
+              if "ndcg@10_lo" in m else "—")
         lines.append(
             f"| {nm} | {r['n_features']:,} | {_fmt(m['auc'])} | {_fmt(m['logloss'], 5)} | "
-            f"{best}{_fmt(m['ndcg@10'])}{best} | {_fmt(m['recall@10'])} | {_fmt(m['mrr'])} | "
+            f"{best}{_fmt(m['ndcg@10'])}{best} | {ci} | {_fmt(m['recall@10'])} | "
             f"{r['feature_seconds']:.1f} | {r['human_hours']:.1f} |")
     if base:
-        lines += ["", "Прирост к ручному набору:", "",
-                  "| метод | ΔAUC | ΔNDCG@10 | ΔRecall@10 |", "|---|---:|---:|---:|"]
         b = base["test"]
+        lines += ["", "Прирост к ручному набору. Колонка «значимо» отвечает на "
+                      "вопрос, различимы ли методы вообще: различие считается "
+                      "значимым, только если доверительные интервалы NDCG@10 "
+                      "не пересекаются.", "",
+                  "| метод | ΔAUC | ΔNDCG@10 | ΔRecall@10 | значимо |",
+                  "|---|---:|---:|---:|:---:|"]
         for r in d["results"]:
             if r["name"] == "hand":
                 continue
             m = r["test"]
+            if "ndcg@10_lo" in m and "ndcg@10_lo" in b:
+                disjoint = (m["ndcg@10_lo"] > b["ndcg@10_hi"]
+                            or m["ndcg@10_hi"] < b["ndcg@10_lo"])
+                sig = "да" if disjoint else "нет"
+            else:
+                sig = "—"
             lines.append(
                 f"| {METHOD_RU.get(r['name'], r['name'])} | {m['auc'] - b['auc']:+.4f} | "
                 f"{m['ndcg@10'] - b['ndcg@10']:+.4f} | "
-                f"{m['recall@10'] - b['recall@10']:+.4f} |")
+                f"{m['recall@10'] - b['recall@10']:+.4f} | {sig} |")
     return "\n".join(lines) + "\n"
 
 
@@ -92,7 +104,7 @@ def section_e05() -> str:
         "**Часть 1 — проверка отсутствия утечки.** Признаки считаются дважды: "
         "на полном логе и на логе, обрезанном по границе train.",
         "",
-        f"| проверено признаков | строк-запросов | признаков с отличиями | макс. отн. отличие |",
+        "| проверено признаков | строк-запросов | признаков с отличиями | макс. отн. отличие |",
         "|---:|---:|---:|---:|",
         f"| {p1['n_features_audited']:,} | {p1['n_query_rows']:,} | "
         f"{p1['n_features_differing']} | {p1['max_relative_difference']:.1e} |",
@@ -239,7 +251,7 @@ def fill(verbose: bool = True) -> None:
                 print(f"  маркер RESULTS:{key} не найден в README — пропуск")
             continue
         body = fn()
-        text = pat.sub(lambda m: f"{m.group(1)}\n{body}{m.group(3)}", text)
+        text = pat.sub(lambda m, b=body: f"{m.group(1)}\n{b}{m.group(3)}", text)
         if verbose:
             print(f"  RESULTS:{key} подставлено ({len(body.splitlines())} строк)")
     README.write_text(text, encoding="utf-8")
