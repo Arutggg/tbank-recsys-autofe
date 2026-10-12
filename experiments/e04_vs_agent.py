@@ -267,21 +267,21 @@ def report(p1: dict, p2: dict | None) -> None:
     print("=" * W)
     print(f"  полное пространство {p2['space']['total']:,}, "
           f"правдоподобное подпространство {p2['space']['plausible']:,}\n")
-    print(f"{'k':>5}{'метод':<30}{'AUC':>10}{'NDCG@10':>11}{'Recall@10':>12}")
+    print(f"{'k':>5}  {'метод':<34}{'AUC':>10}{'NDCG@10':>11}{'Recall@10':>12}")
     print("-" * W)
     for r in p2["k_results"]:
         k = r["k"]
-        print(f"{k:>5}{'компилятор (top-k из всех)':<30}"
+        print(f"{k:>5}  {'компилятор (top-k из всех)':<34}"
               f"{r['compiler']['auc']:>10.4f}{r['compiler']['ndcg@10']:>11.4f}"
               f"{r['compiler']['recall@10']:>12.4f}")
-        print(f"{'':>5}{'идеальный агент (top-k из подпр.)':<30}"
+        print(f"{'':>5}  {'идеальный агент (top-k из подпр.)':<34}"
               f"{r['oracle_agent']['auc']:>10.4f}"
               f"{r['oracle_agent']['ndcg@10']:>11.4f}"
               f"{r['oracle_agent']['recall@10']:>12.4f}")
-        print(f"{'':>5}{'агент угадывает (среднее)':<30}"
+        print(f"{'':>5}  {'агент угадывает (среднее)':<34}"
               f"{r['agent_mean']['auc']:>10.4f}{r['agent_mean']['ndcg@10']:>11.4f}"
               f"{r['agent_mean']['recall@10']:>12.4f}")
-        print(f"{'':>5}{'  +- по прогонам':<30}"
+        print(f"{'':>5}  {'  +- по прогонам':<34}"
               f"{r['agent_std']['auc']:>10.4f}{r['agent_std']['ndcg@10']:>11.4f}"
               f"{r['agent_std']['recall@10']:>12.4f}")
         print("-" * W)

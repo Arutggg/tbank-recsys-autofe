@@ -1,0 +1,130 @@
+{
+  "config": {
+    "dataset": "retailrocket",
+    "n_events": 0,
+    "n_negatives": 23,
+    "n_negatives_eval": 49,
+    "n_trials": 8,
+    "neg_source": "mixed",
+    "prediction_gap_days": 1.0,
+    "seed": 0
+  },
+  "results": [
+    {
+      "name": "seen",
+      "n_features": 1,
+      "test": {
+        "auc": 0.5048,
+        "auc_lo": 0.4977,
+        "auc_hi": 0.511,
+        "logloss": 0.10519,
+        "ndcg@10": 0.0,
+        "ndcg@10_lo": 0.0,
+        "ndcg@10_hi": 0.0
+      },
+      "train_seconds": 4.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 0.1
+    },
+    {
+      "name": "popularity",
+      "n_features": 1,
+      "test": {
+        "auc": 0.4468,
+        "auc_lo": 0.4341,
+        "auc_hi": 0.4577,
+        "logloss": 0.10531,
+        "ndcg@10": 0.1255,
+        "ndcg@10_lo": 0.1169,
+        "ndcg@10_hi": 0.1349
+      },
+      "train_seconds": 8.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 0.2
+    },
+    {
+      "name": "hand",
+      "n_features": 98,
+      "test": {
+        "auc": 0.8062,
+        "auc_lo": 0.7992,
+        "auc_hi": 0.8131,
+        "logloss": 0.08417,
+        "ndcg@10": 0.3733,
+        "ndcg@10_lo": 0.3592,
+        "ndcg@10_hi": 0.385
+      },
+      "train_seconds": 73.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 6.0
+    },
+    {
+      "name": "hand_keys_decay",
+      "n_features": 720,
+      "test": {
+        "auc": 0.7963,
+        "auc_lo": 0.7878,
+        "auc_hi": 0.8045,
+        "logloss": 0.08515,
+        "ndcg@10": 0.3708,
+        "ndcg@10_lo": 0.3548,
+        "ndcg@10_hi": 0.3837
+      },
+      "train_seconds": 507.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 0.1
+    },
+    {
+      "name": "compiler_L0",
+      "n_features": 1040,
+      "test": {
+        "auc": 0.8097,
+        "auc_lo": 0.8021,
+        "auc_hi": 0.8172,
+        "logloss": 0.08308,
+        "ndcg@10": 0.4035,
+        "ndcg@10_lo": 0.3885,
+        "ndcg@10_hi": 0.4171
+      },
+      "train_seconds": 949.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 0.0
+    },
+    {
+      "name": "compiler",
+      "n_features": 1944,
+      "test": {
+        "auc": 0.8149,
+        "auc_lo": 0.8079,
+        "auc_hi": 0.8221,
+        "logloss": 0.0826,
+        "ndcg@10": 0.4117,
+        "ndcg@10_lo": 0.3992,
+        "ndcg@10_hi": 0.426
+      },
+      "train_seconds": 2611.0,
+      "feature_seconds": NaN,
+      "val_logloss": NaN,
+      "best_iteration": 0,
+      "config": {},
+      "human_hours": 0.0
+    }
+  ],
+  "partial": true,
+  "note": "собрано разбором лога прерванного прогона; Recall@10 и MRR в построчном выводе отсутствуют"
+}

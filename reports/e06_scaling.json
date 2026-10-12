@@ -7,51 +7,81 @@
   "points": [
     {
       "n_events": 500000,
-      "n_distinct_user_item_pairs": 395976,
-      "generate_seconds": 2.9135133330128156,
-      "build_stream_seconds": 0.006712667003739625,
-      "compiler_total_seconds": 1.1694437080004718,
-      "compiler_scan_seconds": 0.8761417079949751,
-      "compiler_rows_per_sec": 593511.2953245941,
-      "compiler_peak_state_bytes": 148971600,
-      "hand_window_state_bytes": 22438136,
+      "n_distinct_user_item_pairs": 365624,
+      "generate_seconds": 3.4290292500227224,
+      "build_stream_seconds": 0.0076894169906154275,
+      "compiler_total_seconds": 1.258250874991063,
+      "compiler_scan_seconds": 0.9333716660039499,
+      "compiler_rows_per_sec": 557119.9758251493,
+      "compiler_peak_state_bytes": 138056040,
+      "hand_window_state_bytes": 22065504,
       "n_features": 1944
     },
     {
       "n_events": 1000000,
-      "n_distinct_user_item_pairs": 701580,
-      "generate_seconds": 5.451853874983499,
-      "build_stream_seconds": 0.015319875004934147,
-      "compiler_total_seconds": 1.9618250420026015,
-      "compiler_scan_seconds": 1.6847413329815026,
-      "compiler_rows_per_sec": 605434.1874517297,
-      "compiler_peak_state_bytes": 258958080,
-      "hand_window_state_bytes": 42360456,
+      "n_distinct_user_item_pairs": 595375,
+      "generate_seconds": 5.65364987499197,
+      "build_stream_seconds": 0.014718833001097664,
+      "compiler_total_seconds": 1.8635629579948727,
+      "compiler_scan_seconds": 1.5696212080074474,
+      "compiler_rows_per_sec": 649838.3143630157,
+      "compiler_peak_state_bytes": 220742640,
+      "hand_window_state_bytes": 41132976,
       "n_features": 1944
     },
     {
       "n_events": 2000000,
-      "n_distinct_user_item_pairs": 1149930,
-      "generate_seconds": 11.343644540989771,
-      "build_stream_seconds": 0.029281541996169835,
-      "compiler_total_seconds": 3.555474332999438,
-      "compiler_scan_seconds": 3.2754003340087365,
-      "compiler_rows_per_sec": 616718.5058345946,
-      "compiler_peak_state_bytes": 420334920,
-      "hand_window_state_bytes": 79679776,
+      "n_distinct_user_item_pairs": 845704,
+      "generate_seconds": 11.417962875013473,
+      "build_stream_seconds": 0.028008875000523403,
+      "compiler_total_seconds": 3.1250070839887485,
+      "compiler_scan_seconds": 2.8463981249951757,
+      "compiler_rows_per_sec": 709668.8204863905,
+      "compiler_peak_state_bytes": 310856400,
+      "hand_window_state_bytes": 76278072,
       "n_features": 1944
     },
     {
       "n_events": 4000000,
-      "n_distinct_user_item_pairs": 1677457,
-      "generate_seconds": 22.854022167011863,
-      "build_stream_seconds": 0.06302379199769348,
-      "compiler_total_seconds": 6.742567958019208,
-      "compiler_scan_seconds": 6.4366438750003,
-      "compiler_rows_per_sec": 624549.0783812881,
-      "compiler_peak_state_bytes": 610214040,
-      "hand_window_state_bytes": 149419328,
+      "n_distinct_user_item_pairs": 1000446,
+      "generate_seconds": 22.829615708003985,
+      "build_stream_seconds": 0.060343332996126264,
+      "compiler_total_seconds": 6.027308541000821,
+      "compiler_scan_seconds": 5.7376592500077095,
+      "compiler_rows_per_sec": 700634.147974995,
+      "compiler_peak_state_bytes": 366561360,
+      "hand_window_state_bytes": 142045240,
       "n_features": 1944
     }
-  ]
+  ],
+  "part_b": {
+    "n_events": 2000000,
+    "rows": [
+      {
+        "horizon_days": 1.0,
+        "compiler_state_bytes": 324019440,
+        "window_state_bytes": 12911928
+      },
+      {
+        "horizon_days": 7.0,
+        "compiler_state_bytes": 324019440,
+        "window_state_bytes": 13931128
+      },
+      {
+        "horizon_days": 30.0,
+        "compiler_state_bytes": 324019440,
+        "window_state_bytes": 17800728
+      },
+      {
+        "horizon_days": 90.0,
+        "compiler_state_bytes": 324019440,
+        "window_state_bytes": 27788088
+      },
+      {
+        "horizon_days": 365.0,
+        "compiler_state_bytes": 324019440,
+        "window_state_bytes": 71791288
+      }
+    ]
+  }
 }

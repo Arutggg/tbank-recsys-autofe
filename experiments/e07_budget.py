@@ -77,6 +77,34 @@ def run(n_events=400_000, neg_source="mixed", seed=0, verbose=True) -> dict:
                      splits.rows(X, "val"), splits.y("val"), base, names)
     imp = gain_importance(b_all, fs.n_total)
 
+    # --- важность по семействам ключей, БЕЗ поправки на стоимость ---
+    #
+    # Нужна отдельно от жадного порядка. Жадность сортирует по отношению
+    # польза/память, и дешёвый ключ со скромной пользой обгоняет дорогой с
+    # большей — для вопроса «что взять при ограниченной памяти» это верно,
+    # но на вопрос «нашёл ли метод сигнал» так ответить нельзя.
+    #
+    # На полигоне бренд несёт сигнал (tau=20д) и НЕ входит в ключи ручного
+    # baseline, а ценовой сегмент — чистый шум. Проверка прямая: суммарная
+    # важность признаков на user x brand должна заметно превышать важность
+    # на user x price_bucket.
+    from afe.select import feature_key_map
+    fkm = feature_key_map(fs)
+    by_key: dict[str, float] = {}
+    for fi, deps in enumerate(fkm):
+        if len(deps) != 1:
+            continue                      # производные делим между ключами — пропускаем
+        nm = costs[deps[0]].name if deps[0] in costs else "x".join(deps[0])
+        by_key[nm] = by_key.get(nm, 0.0) + float(imp[fi])
+    total = sum(by_key.values()) or 1.0
+    importance_by_key = sorted(
+        ({"key": k, "gain": v, "share": v / total} for k, v in by_key.items()),
+        key=lambda r: -r["gain"])
+    if verbose:
+        print("\n  важность по ключам (суммарный gain, без поправки на стоимость):")
+        for r in importance_by_key:
+            print(f"    {r['key']:<22} {r['share']:>6.1%}")
+
     order = greedy_key_order(fs, imp, costs)
     if verbose:
         print("\n  порядок добавления ключей (полезность / память):")
@@ -133,7 +161,8 @@ def run(n_events=400_000, neg_source="mixed", seed=0, verbose=True) -> dict:
         "seconds": time.perf_counter() - t0,
     }
     return {"config": {"n_events": n_events, "neg_source": neg_source, "seed": seed},
-            "pareto": pareto, "hand_reference": hand_ref}
+            "pareto": pareto, "hand_reference": hand_ref,
+            "importance_by_key": importance_by_key}
 
 
 def report(res: dict) -> None:
@@ -141,6 +170,23 @@ def report(res: dict) -> None:
     print("\n" + "=" * W)
     print("ФРОНТ ПАРЕТО: качество против бюджета памяти состояния")
     print("=" * W)
+    ibk = res.get("importance_by_key")
+    if ibk:
+        print("ВАЖНОСТЬ ПО КЛЮЧАМ (gain, без поправки на стоимость)")
+        print("-" * W)
+        for r in ibk:
+            bar = "#" * int(round(40 * r["share"] / max(ibk[0]["share"], 1e-9)))
+            print(f"  {r['key']:<22}{r['share']:>7.1%}  {bar}")
+        br = next((r["share"] for r in ibk if r["key"] == "userxbrand"), None)
+        pr = next((r["share"] for r in ibk if r["key"] == "userxprice_bucket"), None)
+        if br is not None and pr is not None:
+            print("\n  ПРОВЕРКА ПОЛИГОНА: в бренде сигнал (tau=20д), в цене шум.")
+            print(f"    userxbrand        {br:.1%}")
+            print(f"    userxprice_bucket {pr:.1%}")
+            print(f"    отношение {br / max(pr, 1e-9):.1f}x  ->  "
+                  f"{'сигнал найден, шум отвергнут' if br > 1.5 * pr else 'РАЗЛИЧИЯ НЕТ'}")
+        print("\n" + "=" * W)
+
     print(f"{'добавлен ключ':<24}{'память':>12}{'обновл/соб':>12}"
           f"{'признаков':>11}{'AUC':>9}{'NDCG@10':>10}")
     print("-" * W)

@@ -383,23 +383,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 3.2716770561783575,
-                "logloss_at_optimum": 0.0943873068514851,
-                "logloss_spread": 0.0019645310349245687
+                "optimal_halflife_days": 5.02237147376018,
+                "logloss_at_optimum": 0.08034718588908596,
+                "logloss_spread": 0.009938748084013918
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 5.02237147376018,
-                "logloss_at_optimum": 0.08969666801560577,
-                "logloss_spread": 0.006775473047605285
+                "logloss_at_optimum": 0.06150744954378452,
+                "logloss_spread": 0.020234295490780596
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 7.709873189594186,
-                "logloss_at_optimum": 0.09623828882953282,
-                "logloss_spread": 0.00040529905002796573
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.09463329783198894,
+                "logloss_spread": 0.0005880661105665819
               }
             ]
           },
@@ -409,23 +409,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08214956264052851,
-                "logloss_spread": 0.009543520065647987
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.07202797079225819,
+                "logloss_spread": 0.01692659552866012
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.06963919857682756,
-                "logloss_spread": 0.024851456236123698
+                "logloss_at_optimum": 0.042478312674417415,
+                "logloss_spread": 0.03668654728607139
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 7.709873189594186,
-                "logloss_at_optimum": 0.0953046516717145,
-                "logloss_spread": 0.00038940886171433264
+                "optimal_halflife_days": 11.835473522853482,
+                "logloss_at_optimum": 0.09400372455165171,
+                "logloss_spread": 0.000709142868300594
               }
             ]
           },
@@ -435,23 +435,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08128059482209835,
-                "logloss_spread": 0.009884230265306451
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.07261011874955373,
+                "logloss_spread": 0.016499555558493792
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 18.16870784583413,
-                "logloss_at_optimum": 0.06639538958331923,
-                "logloss_spread": 0.026786505860584175
+                "logloss_at_optimum": 0.04261937556759277,
+                "logloss_spread": 0.035830389899330024
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
                 "optimal_halflife_days": 3.2716770561783575,
-                "logloss_at_optimum": 0.09522121850487283,
-                "logloss_spread": 0.0003579373552095727
+                "logloss_at_optimum": 0.09486285874026809,
+                "logloss_spread": 0.00034558826353320304
               }
             ]
           }
@@ -471,23 +471,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08736907592972973,
-                "logloss_spread": 0.006297243050290016
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.0761740006970959,
+                "logloss_spread": 0.013672876126722092
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 18.16870784583413,
-                "logloss_at_optimum": 0.07972880779704658,
-                "logloss_spread": 0.015989534087334625
+                "logloss_at_optimum": 0.05483111617527494,
+                "logloss_spread": 0.030305640520336928
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 18.16870784583413,
-                "logloss_at_optimum": 0.09598931981398368,
-                "logloss_spread": 0.00022538244206682378
+                "optimal_halflife_days": 7.709873189594186,
+                "logloss_at_optimum": 0.09418194356751047,
+                "logloss_spread": 0.0006207145619727128
               }
             ]
           },
@@ -497,23 +497,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08214956264052851,
-                "logloss_spread": 0.009543520065647987
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.07202797079225819,
+                "logloss_spread": 0.01692659552866012
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.06963919857682756,
-                "logloss_spread": 0.024851456236123698
+                "logloss_at_optimum": 0.042478312674417415,
+                "logloss_spread": 0.03668654728607139
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 7.709873189594186,
-                "logloss_at_optimum": 0.0953046516717145,
-                "logloss_spread": 0.00038940886171433264
+                "optimal_halflife_days": 11.835473522853482,
+                "logloss_at_optimum": 0.09400372455165171,
+                "logloss_spread": 0.000709142868300594
               }
             ]
           },
@@ -523,23 +523,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 18.16870784583413,
-                "logloss_at_optimum": 0.0751487606338057,
-                "logloss_spread": 0.015078332383371335
+                "optimal_halflife_days": 27.89089461861158,
+                "logloss_at_optimum": 0.07317316825519557,
+                "logloss_spread": 0.01739185501142919
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 27.89089461861158,
-                "logloss_at_optimum": 0.045778739520868424,
-                "logloss_spread": 0.0428529061147677
+                "logloss_at_optimum": 0.03155690811872582,
+                "logloss_spread": 0.049057249041792546
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 5.02237147376018,
-                "logloss_at_optimum": 0.09454700516421378,
-                "logloss_spread": 0.0004384372270750392
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.09557606497039443,
+                "logloss_spread": 0.0002794630648181723
               }
             ]
           }
@@ -559,23 +559,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08192405774987219,
-                "logloss_spread": 0.010062694499700639
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.0711604582517931,
+                "logloss_spread": 0.016845397513217814
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
-                "optimal_halflife_days": 18.16870784583413,
-                "logloss_at_optimum": 0.0700113810718429,
-                "logloss_spread": 0.02373859848082524
+                "optimal_halflife_days": 11.835473522853482,
+                "logloss_at_optimum": 0.04486323814760766,
+                "logloss_spread": 0.03259827603244589
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 3.2716770561783575,
-                "logloss_at_optimum": 0.09544802403896044,
-                "logloss_spread": 0.0004327122374798986
+                "optimal_halflife_days": 11.835473522853482,
+                "logloss_at_optimum": 0.09448539698639358,
+                "logloss_spread": 0.00017624140389349563
               }
             ]
           },
@@ -585,23 +585,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08214956264052851,
-                "logloss_spread": 0.009543520065647987
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.07202797079225819,
+                "logloss_spread": 0.01692659552866012
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.06963919857682756,
-                "logloss_spread": 0.024851456236123698
+                "logloss_at_optimum": 0.042478312674417415,
+                "logloss_spread": 0.03668654728607139
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 7.709873189594186,
-                "logloss_at_optimum": 0.0953046516717145,
-                "logloss_spread": 0.00038940886171433264
+                "optimal_halflife_days": 11.835473522853482,
+                "logloss_at_optimum": 0.09400372455165171,
+                "logloss_spread": 0.000709142868300594
               }
             ]
           },
@@ -611,23 +611,23 @@
               {
                 "key": "userxcat",
                 "label": "интерес к категории",
-                "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.08282590492403903,
-                "logloss_spread": 0.008894777917354976
+                "optimal_halflife_days": 18.16870784583413,
+                "logloss_at_optimum": 0.07198992053458289,
+                "logloss_spread": 0.016793035914118307
               },
               {
                 "key": "userxitem",
                 "label": "повтор айтема",
                 "optimal_halflife_days": 11.835473522853482,
-                "logloss_at_optimum": 0.07156927747036257,
-                "logloss_spread": 0.02408365364824086
+                "logloss_at_optimum": 0.04135717148947033,
+                "logloss_spread": 0.035952267493581776
               },
               {
                 "key": "item",
                 "label": "трендовость айтема",
-                "optimal_halflife_days": 7.709873189594186,
-                "logloss_at_optimum": 0.09558811976105176,
-                "logloss_spread": 0.0005302549091454056
+                "optimal_halflife_days": 3.2716770561783575,
+                "logloss_at_optimum": 0.09437509184801147,
+                "logloss_spread": 0.00041544097160792215
               }
             ]
           }
