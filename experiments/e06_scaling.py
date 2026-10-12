@@ -11,15 +11,31 @@
 
 При таком дизайне предсказания двух подходов расходятся качественно:
 
-  компилятор   состояние = (число ключей) x (типов) x (ядер) x 3 чисел.
-               От числа событий НЕ зависит. Значит память должна выйти на
-               ПЛАТО, а время — расти линейно.
+ЧАСТЬ A. Длина лога при фиксированном каталоге.
+  Первая версия этого эксперимента предсказывала ПЛАТО у компилятора.
+  Замер показал N^0.68, а не N^0.00, и предсказание было неверным: при
+  фиксированных 50 тысячах юзеров и 10 тысячах айтемов число уникальных
+  ПАР user x item всё равно растёт с длиной лога — насыщение наступило бы
+  лишь при 500 миллионах пар. Результат оставлен как есть.
 
-  жёсткие окна события внутри окна нужно хранить, чтобы уметь их
-               посчитать. Память должна расти ЛИНЕЙНО по событиям.
+  Более того, на этих масштабах компилятор занимает БОЛЬШЕ памяти, чем
+  жёсткие окна: он держит 8 ядер x 3 момента = 72 числа на ключ, тогда как
+  CSR окон хранит 8 байт на событие. Утверждение «O(1) на ключ против O(N)
+  на события» верно асимптотически, но здесь перевешивает константа.
 
-Если плато есть — метод применим к логу любой длины при фиксированном
-каталоге, и это свойство структуры, а не результат оптимизации кода.
+ЧАСТЬ B. Ширина самого длинного окна при фиксированном логе.
+  Вот ось, на которой разница принципиальная и измеримая.
+
+    компилятор   счётчик с полупериодом в год занимает РОВНО СТОЛЬКО ЖЕ,
+                 сколько счётчик с полупериодом в час: те же 72 числа на
+                 ключ. Память не зависит от горизонта вообще.
+
+    жёсткие окна чтобы ответить про окно в 365 дней, события за год надо
+                 хранить. Память растёт вместе с горизонтом.
+
+  Это и есть настоящее структурное преимущество, и оно проверяется прямо:
+  при росте горизонта с суток до года память компилятора не меняется, а
+  память окон растёт пропорционально числу попавших в окно событий.
 """
 
 from __future__ import annotations
@@ -124,6 +140,68 @@ def run_point(n_events: int, verbose: bool = True) -> dict:
     return row
 
 
+#: Горизонты для части B: от суток до года.
+HORIZONS_DAYS = (1.0, 7.0, 30.0, 90.0, 365.0)
+
+
+def window_state_bytes_for_horizon(stream, keys, horizon_days: float) -> int:
+    """Память, нужная жёстким окнам при заданном самом длинном горизонте.
+
+    Хранить надо события, попадающие в окно: для горизонта W это те, чей
+    возраст меньше W. Считается фактическое число таких событий, а не
+    оценка сверху.
+    """
+    t_days = (stream.t - stream.t[0]) / 86400.0
+    t_end = t_days[-1]
+    in_window = int(np.count_nonzero(t_days >= t_end - horizon_days))
+    total = 0
+    for key in keys:
+        key_id, n_keys = _factorize_key(stream, key)
+        # offsets по ключам + индексы событий внутри горизонта
+        total += (n_keys + 1) * 8 + in_window * 8
+        del key_id
+        gc.collect()
+    return total
+
+
+def run_part_b(n_events: int = 2_000_000, verbose: bool = True) -> dict:
+    """Фиксированный лог, растёт только горизонт самого длинного признака."""
+    cfg = SyntheticConfig(n_events=n_events, n_users=N_USERS, n_items=N_ITEMS,
+                          span_days=400.0, seed=0)
+    log, _ = generate(cfg)
+    task = TaskConfig(target_etype=2, n_negatives=9,
+                      max_positives=N_QUERIES_POSITIVES, seed=0)
+    t_cut = log.time_quantile(0.8)
+    q = build_queries(log, t_cut, int(log.t[-1]) + 1, task, train_t_end=t_cut)
+    stream = build_stream(log, q)
+    hand_keys = [("user",), ("item",), ("user", "item"), ("user", "cat")]
+
+    schema = Schema(user_cols=["user"],
+                    item_cols=["item", "cat", "brand", "price_bucket"],
+                    etype_names=log.etype_names)
+    rows = []
+    for h in HORIZONS_DAYS:
+        # компилятор: сетка полупериодов до горизонта h, но ЧИСЛО ядер
+        # фиксировано — меняется только самый длинный масштаб
+        hl = tuple(np.geomspace(3600.0, h * 86400.0, 7)) + (float("inf"),)
+        fs = enumerate_features(schema, EnumerationConfig(halflives=hl))
+        comp = FeatureCompiler(fs, n_etypes=log.n_etypes)
+        est = comp.estimate_state_bytes(stream)
+        comp_bytes = max(est.values()) if est else 0
+        win_bytes = window_state_bytes_for_horizon(stream, hand_keys, h)
+        rows.append({"horizon_days": h,
+                     "compiler_state_bytes": int(comp_bytes),
+                     "window_state_bytes": int(win_bytes)})
+        if verbose:
+            print(f"  горизонт {h:>5.0f} дн. | компилятор "
+                  f"{comp_bytes / 2**20:>7.0f} МиБ | окна "
+                  f"{win_bytes / 2**20:>7.0f} МиБ", flush=True)
+        gc.collect()
+    del log, q, stream
+    gc.collect()
+    return {"n_events": n_events, "rows": rows}
+
+
 def run(sizes=(500_000, 1_000_000, 2_000_000, 4_000_000),
         verbose=True) -> dict:
     """Верхняя точка 8 млн событий подобрана под 16 ГБ RAM.
@@ -138,9 +216,12 @@ def run(sizes=(500_000, 1_000_000, 2_000_000, 4_000_000),
         print(f"каталог фиксирован: {N_USERS:,} юзеров, {N_ITEMS:,} айтемов, "
               f"период 365 дней\nрастёт только длина лога\n")
     rows = [run_point(n, verbose) for n in sizes]
+    if verbose:
+        print("\nЧАСТЬ B: фиксированный лог, растёт горизонт самого длинного признака\n")
+    part_b = run_part_b(verbose=verbose)
     return {"config": {"n_users": N_USERS, "n_items": N_ITEMS,
                        "n_query_positives": N_QUERIES_POSITIVES},
-            "points": rows}
+            "points": rows, "part_b": part_b}
 
 
 def report(res: dict) -> None:
@@ -180,6 +261,29 @@ def report(res: dict) -> None:
     growth_sc = sc[-1] / sc[0]
     growth_hb = hb[-1] / hb[0]
     growth_n = n[-1] / n[0]
+    pb = res.get("part_b")
+    if pb:
+        print("\n" + "=" * W)
+        print("ЧАСТЬ B. ФИКСИРОВАННЫЙ ЛОГ, РАСТЁТ ГОРИЗОНТ ПРИЗНАКА")
+        print("=" * W)
+        print(f"лог {pb['n_events']:,} событий, каталог тот же\n")
+        print(f"{'горизонт':>12}{'компилятор':>18}{'жёсткие окна':>18}{'отношение':>12}")
+        for r in pb["rows"]:
+            c_, w_ = r["compiler_state_bytes"], r["window_state_bytes"]
+            print(f"{r['horizon_days']:>9.0f} дн.{c_ / 2**20:>14.0f} МиБ"
+                  f"{w_ / 2**20:>14.0f} МиБ{w_ / max(c_, 1):>11.1f}x")
+        c0 = pb["rows"][0]["compiler_state_bytes"]
+        cN = pb["rows"][-1]["compiler_state_bytes"]
+        w0 = pb["rows"][0]["window_state_bytes"]
+        wN = pb["rows"][-1]["window_state_bytes"]
+        print(f"\n  горизонт вырос в {pb['rows'][-1]['horizon_days'] / pb['rows'][0]['horizon_days']:.0f}x:")
+        print(f"    память компилятора изменилась в {cN / max(c0, 1):.2f}x")
+        print(f"    память жёстких окон выросла в  {wN / max(w0, 1):.2f}x")
+        print("\n  Вот настоящее структурное различие: счётчик с полупериодом в год")
+        print("  занимает столько же, сколько с полупериодом в час, а окну в год")
+        print("  нужно держать события за год.")
+
+    print("\n" + "=" * W)
     print(f"  при росте лога в {growth_n:.0f}x:")
     print(f"    состояние компилятора выросло в {growth_sc:.2f}x")
     print(f"    состояние жёстких окон выросло в {growth_hb:.2f}x")

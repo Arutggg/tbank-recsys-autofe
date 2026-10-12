@@ -27,6 +27,7 @@
   logit(u,i,t) = b_pop_s * log1p(base_pop[i])            статическая популярность
                + b_pop_d * log1p(pop_decay[i])           тренд, полупериод tau_pop
                + b_cat   * log1p(aff_cat[u, cat[i]])      интерес к категории, tau_cat
+               + b_brand * log1p(aff_brand[u, brand[i]])  интерес к бренду, tau_brand
                + b_item  * log1p(aff_item[u, i])          склонность к повтору, tau_item
                + gumbel noise
 
@@ -65,6 +66,10 @@ class SyntheticConfig:
 
     #: ИСТИННЫЕ полупериоды (дни) — проверяем, восстановит ли их компилятор
     tau_cat_days: float = 45.0
+    #: Полупериод интереса к БРЕНДУ. Бренд намеренно НЕ входит в набор
+    #: ключей ручного baseline — это проверка главного заявления метода:
+    #: найдёт ли компилятор полезную связь, которую человек не выписал.
+    tau_brand_days: float = 20.0
     tau_item_days: float = 4.0
     tau_pop_days: float = 10.0
 
@@ -74,6 +79,11 @@ class SyntheticConfig:
     b_pop_static: float = 0.55
     b_pop_decay: float = 0.15
     b_cat: float = 1.10
+    #: Вес интереса к БРЕНДУ. Ненулевой — значит в данных есть сигнал,
+    #: которого ручной набор (user, item, user x item, user x cat) не видит.
+    #: Это и есть проверка главного заявления метода: найдёт ли компилятор
+    #: полезную связь, которую человек не выписал.
+    b_brand: float = 0.85
     b_item: float = 1.30
 
     #: насыщение повторов. Без него положительная обратная связь по
@@ -109,9 +119,16 @@ class SyntheticConfig:
     escalate_scale: float = 0.35
     seed: int = 0
 
+    #: ЦЕНОВОЙ СЕГМЕНТ ОСТАЁТСЯ ЧИСТЫМ ШУМОМ, намеренно.
+    #: Это отрицательный контроль полигона: атрибут есть в схеме, компилятор
+    #: обязан перебрать мета-пути через него — и обязан НЕ найти там сигнала.
+    #: Полигон, где все атрибуты полезны, не отличил бы находку от угадывания.
+
     def ground_truth(self) -> dict:
         return {
             "tau_cat_days": self.tau_cat_days,
+            "tau_brand_days": self.tau_brand_days,
+            "b_brand": self.b_brand,
             "tau_item_days": self.tau_item_days,
             "tau_pop_days": self.tau_pop_days,
             "b_cat": self.b_cat,
@@ -122,9 +139,9 @@ class SyntheticConfig:
 @numba.njit(cache=True, nogil=True)
 def _simulate(
     t_ev, u_ev, cum_pop,
-    item_cat, n_cats,
-    lam_cat, lam_item, lam_pop, lam_sat,
-    b_pop_s, b_pop_d, b_cat, b_item, b_sat,
+    item_cat, n_cats, item_brand, n_brands,
+    lam_cat, lam_brand, lam_item, lam_pop, lam_sat,
+    b_pop_s, b_pop_d, b_cat, b_brand, b_item, b_sat,
     base_pop_std, n_candidates, n_recent, n_recent_cand,
     rep_cap, pd_rel_clip, p_cart_base, p_pur_given_cart, escalate_scale, seed,
 ):
@@ -145,6 +162,7 @@ def _simulate(
     n_items = int(cum_pop.shape[0])
 
     aff_cat = np.zeros((n_users, n_cats), dtype=np.float32)
+    aff_brand = np.zeros((n_users, n_brands), dtype=np.float32)
     t_user = np.zeros(n_users, dtype=np.float64)
     rec_item = np.full((n_users, n_recent), -1, dtype=np.int32)
     rec_w = np.zeros((n_users, n_recent), dtype=np.float32)
@@ -180,6 +198,9 @@ def _simulate(
             dc = np.exp(-lam_cat * dtu)
             for c in range(n_cats):
                 aff_cat[u, c] *= dc
+            db = np.exp(-lam_brand * dtu)
+            for bb in range(n_brands):
+                aff_brand[u, bb] *= db
             di = np.exp(-lam_item * dtu)
             ds = np.exp(-lam_sat * dtu)
             for r in range(n_recent):
@@ -250,6 +271,7 @@ def _simulate(
             det = (b_pop_s * base_pop_std[i]
                    + b_pop_d * np.log1p(pd_rel)
                    + b_cat * np.log1p(aff_cat[u, item_cat[i]])
+                   + b_brand * np.log1p(aff_brand[u, item_brand[i]])
                    + b_item * np.log1p(w_rep)
                    - b_sat * np.log1p(w_sat))
             g = -np.log(-np.log(np.random.random() + 1e-12) + 1e-12)
@@ -285,6 +307,7 @@ def _simulate(
         # вес по типу события: покупка — более сильный сигнал интереса
         w_ev = 1.0 if et == 0 else (1.6 if et == 1 else 2.2)
         aff_cat[u, item_cat[item]] += w_ev
+        aff_brand[u, item_brand[item]] += w_ev
         p = rec_ptr[u]
         rec_item[u, p] = item
         rec_w[u, p] = 1.0            # вес повтора не зависит от типа: иначе
@@ -338,10 +361,12 @@ def generate(cfg: SyntheticConfig | None = None) -> tuple[EventLog, dict]:
     ln2 = float(np.log(2.0))
     items, etypes = _simulate(
         t_days, u_ev, cum_pop,
-        item_cat, cfg.n_cats,
-        ln2 / cfg.tau_cat_days, ln2 / cfg.tau_item_days, ln2 / cfg.tau_pop_days,
+        item_cat, cfg.n_cats, item_brand, cfg.n_brands,
+        ln2 / cfg.tau_cat_days, ln2 / cfg.tau_brand_days,
+        ln2 / cfg.tau_item_days, ln2 / cfg.tau_pop_days,
         ln2 / cfg.satiation_halflife_days,
-        cfg.b_pop_static, cfg.b_pop_decay, cfg.b_cat, cfg.b_item, cfg.b_satiation,
+        cfg.b_pop_static, cfg.b_pop_decay, cfg.b_cat, cfg.b_brand,
+        cfg.b_item, cfg.b_satiation,
         base_pop_std,
         cfg.n_candidates, cfg.n_recent, cfg.n_recent_candidates,
         cfg.rep_cap, cfg.pd_rel_clip, cfg.p_cart_base, cfg.p_purchase_given_cart,
