@@ -155,7 +155,12 @@ def fig_benchmark() -> Path | None:
 
 
 def fig_scaling() -> Path | None:
-    """Эксперимент 6: плато состояния против линейного роста."""
+    """Эксперимент 6: две оси масштабирования.
+
+    Левая панель — длина лога: здесь предсказание о плато НЕ подтвердилось,
+    и панель это показывает честно. Правая — горизонт признака: вот где
+    различие принципиальное, и ради неё график и переделан.
+    """
     d = _load("e06_scaling.json")
     if d is None:
         return None
@@ -163,29 +168,47 @@ def fig_scaling() -> Path | None:
     n = np.array([r["n_events"] for r in p], float)
     sc = np.array([r["compiler_peak_state_bytes"] for r in p], float) / 2**20
     hb = np.array([r["hand_window_state_bytes"] for r in p], float) / 2**20
-    t = np.array([r["compiler_scan_seconds"] for r in p], float)
 
-    fig, ax = plt.subplots(1, 2, figsize=(8.4, 3.2))
-    ax[0].plot(n, sc, "o-", color=C_MAIN, ms=4,
-               label="состояние компилятора (затухание)")
-    ax[0].plot(n, hb, "s-", color=C_BAD, ms=4,
-               label="состояние жёстких окон (CSR событий)")
-    ax[0].set_xscale("log")
-    ax[0].set_yscale("log")
+    pb = d.get("part_b")
+    ncol = 3 if pb else 2
+    fig, ax = plt.subplots(1, ncol, figsize=(4.2 * ncol, 3.3))
+
+    ax[0].plot(n, sc, "o-", color=C_MAIN, ms=4, label="компилятор (затухания)")
+    ax[0].plot(n, hb, "s-", color=C_BAD, ms=4, label="жёсткие окна (CSR событий)")
+    ax[0].set_xscale("log"); ax[0].set_yscale("log")
     ax[0].set_xlabel("событий в логе")
     ax[0].set_ylabel("память состояния, МиБ")
-    ax[0].set_title("Каталог фиксирован: состояние выходит на плато")
+    ax[0].set_title("A. Длина лога: плато НЕТ\n(предсказание не подтвердилось)",
+                    fontsize=9)
     ax[0].legend(fontsize=7.5)
 
+    t = np.array([r["compiler_scan_seconds"] for r in p], float)
     ax[1].plot(n, t, "o-", color=C_MAIN, ms=4, label="время прохода")
-    ref = t[0] * n / n[0]
-    ax[1].plot(n, ref, ":", color=C_MUTE, lw=1.2, label="линейный рост")
-    ax[1].set_xscale("log")
-    ax[1].set_yscale("log")
-    ax[1].set_xlabel("событий в логе")
-    ax[1].set_ylabel("секунды")
-    ax[1].set_title("Время прохода линейно по длине лога")
+    ax[1].plot(n, t[0] * n / n[0], ":", color=C_MUTE, lw=1.2, label="линейный рост")
+    ax[1].set_xscale("log"); ax[1].set_yscale("log")
+    ax[1].set_xlabel("событий в логе"); ax[1].set_ylabel("секунды")
+    ax[1].set_title("Время прохода линейно", fontsize=9)
     ax[1].legend(fontsize=7.5)
+
+    if pb:
+        h = np.array([r["horizon_days"] for r in pb["rows"]], float)
+        cb = np.array([r["compiler_state_bytes"] for r in pb["rows"]], float) / 2**20
+        wb = np.array([r["window_state_bytes"] for r in pb["rows"]], float) / 2**20
+        # нормируем на первую точку: важна форма зависимости, а не абсолют
+        ax[2].plot(h, cb / cb[0], "o-", color=C_MAIN, ms=4, label="компилятор")
+        ax[2].plot(h, wb / wb[0], "s-", color=C_BAD, ms=4, label="жёсткие окна")
+        ax[2].set_xscale("log")
+        ax[2].set_xlabel("горизонт признака, дней")
+        ax[2].set_ylabel("память относительно горизонта 1 день")
+        ax[2].set_title("B. Горизонт признака:\nвот здесь различие", fontsize=9)
+        ax[2].legend(fontsize=7.5)
+        ax[2].annotate(f"×{wb[-1] / wb[0]:.1f}", (h[-1], wb[-1] / wb[0]),
+                       fontsize=8, color=C_BAD, xytext=(-26, 4),
+                       textcoords="offset points")
+        ax[2].annotate(f"×{cb[-1] / cb[0]:.2f}", (h[-1], cb[-1] / cb[0]),
+                       fontsize=8, color=C_MAIN, xytext=(-30, -12),
+                       textcoords="offset points")
+
     FIGS.mkdir(parents=True, exist_ok=True)
     out = FIGS / "e06_scaling.png"
     fig.savefig(out)
