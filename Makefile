@@ -3,7 +3,7 @@ PY := ./.venv/bin/python
 export PYTHONPATH := src
 
 
-.PHONY: help setup lint test screenshots e01 e02 e03 e03-rr e04 e05 e06 e07 e08 figures fill report all data clean
+.PHONY: all clean data e01 e02 e03 e03-rr e04 e05 e06 e07 e08 figures fill help lint report screenshots setup test
 
 help:
 	@echo "setup    — окружение и зависимости"

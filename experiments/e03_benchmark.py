@@ -143,10 +143,25 @@ def load_dataset(dataset: str, n_events: int, seed: int, verbose: bool):
     return log, schema
 
 
+def _result_dict(r) -> dict:
+    return {"name": r.name, "n_features": r.n_features, "test": r.test_metrics,
+            "val_logloss": r.val_logloss, "feature_seconds": r.feature_seconds,
+            "train_seconds": r.train_seconds, "best_iteration": r.best_iteration,
+            "human_hours": r.human_hours, "config": r.config}
+
+
 def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
         n_negatives=23, n_negatives_eval=49, n_trials=12, seed=0,
         neg_source="mixed", prediction_gap_days=1.0, dataset="synthetic",
-        verbose=True) -> dict:
+        checkpoint_path: Path | None = None, verbose=True) -> dict:
+    """checkpoint_path — куда дописывать результаты ПОСЛЕ КАЖДОГО МЕТОДА.
+
+    Первая версия писала JSON только по завершении всех методов, и когда
+    прогон пришлось остановить на последнем из семи, два часа счёта остались
+    только в текстовом логе: таблицу восстанавливали разбором, а Recall@10 и
+    MRR потерялись, потому что построчный вывод их не печатает. Контрольная
+    точка после каждого метода делает прогон прерываемым без потерь.
+    """
     log, schema = load_dataset(dataset, n_events, seed, verbose)
 
     task = TaskConfig(target_etype=2, n_negatives=n_negatives, seed=seed,
@@ -160,6 +175,12 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
         print("\nвременные сплиты:")
         print(splits.describe())
 
+    cfg_out = {"dataset": dataset, "n_events": log.n_events,
+               "n_positives": n_positives,
+               "n_positives_train": n_positives_train,
+               "n_negatives": n_negatives, "n_negatives_eval": n_negatives_eval,
+               "n_trials": n_trials, "neg_source": neg_source,
+               "prediction_gap_days": prediction_gap_days, "seed": seed}
     stream = build_stream(log, splits.queries)
     results = []
     for name in METHODS:
@@ -189,6 +210,12 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
             r.test_metrics[f"{metric}_hi"] = hi
         results.append(r)
         del X
+        if checkpoint_path is not None:
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint_path.write_text(json.dumps(
+                {"config": cfg_out, "results": [_result_dict(x) for x in results],
+                 "partial": len(results) < len(METHODS)},
+                indent=2, ensure_ascii=False))
         if verbose:
             m = r.test_metrics
             print(f"    test AUC={m['auc']:.4f} [{m['auc_lo']:.4f}, {m['auc_hi']:.4f}]  "
@@ -197,24 +224,8 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
                   f"[{m['ndcg@10_lo']:.4f}, {m['ndcg@10_hi']:.4f}]  "
                   f"({r.train_seconds:.0f} с)", flush=True)
 
-    return {
-        "config": {"dataset": dataset, "n_events": log.n_events,
-                   "n_positives": n_positives,
-                   "n_positives_train": n_positives_train,
-                   "n_negatives": n_negatives,
-                   "n_negatives_eval": n_negatives_eval, "n_trials": n_trials,
-                   "prediction_gap_days": prediction_gap_days,
-                   "neg_source": neg_source, "seed": seed},
-        "meta": {},
-        "results": [
-            {"name": r.name, "n_features": r.n_features,
-             "test": r.test_metrics, "val_logloss": r.val_logloss,
-             "feature_seconds": r.feature_seconds, "train_seconds": r.train_seconds,
-             "best_iteration": r.best_iteration, "human_hours": r.human_hours,
-             "config": r.config}
-            for r in results
-        ],
-    }
+    return {"config": cfg_out, "meta": {},
+            "results": [_result_dict(r) for r in results]}
 
 
 def report(res: dict) -> None:
@@ -283,7 +294,13 @@ if __name__ == "__main__":
                     help="mixed — имитация ретривера (основной протокол); "
                          "popularity — вырожденный, см. эксперимент по диагностике")
     a = ap.parse_args()
-    res = run(n_events=a.n_events, n_positives=a.n_positives,
+    suffix = "" if a.neg_source == "mixed" else f"_{a.neg_source}"
+    if a.prediction_gap_days == 0:
+        suffix += "_nogap"
+    out_path = OUT / f"e03_benchmark_{a.dataset}{suffix}.json"
+
+    res = run(checkpoint_path=out_path,
+              n_events=a.n_events, n_positives=a.n_positives,
               n_positives_train=a.n_positives_train,
               n_negatives=a.n_negatives, n_negatives_eval=a.n_negatives_eval,
               n_trials=a.n_trials, seed=a.seed,
@@ -293,9 +310,5 @@ if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
     # отдельный файл на протокол: вырожденный прогон сохраняется как
     # документированный диагноз, а не затирается основным
-    suffix = "" if a.neg_source == "mixed" else f"_{a.neg_source}"
-    if a.prediction_gap_days == 0:
-        suffix += "_nogap"
-    name = f"e03_benchmark_{a.dataset}{suffix}.json"
-    (OUT / name).write_text(json.dumps(res, indent=2, ensure_ascii=False))
-    print(f"результаты: reports/{name}")
+    out_path.write_text(json.dumps(res, indent=2, ensure_ascii=False))
+    print(f"результаты: {out_path.relative_to(OUT.parent)}")

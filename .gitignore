@@ -1,8 +1,13 @@
+# Окружение и кэши
 .venv/
 __pycache__/
 *.pyc
-data/
-reports/figures/*.png
-reports/*.pdf
 .pytest_cache/
+.ruff_cache/
+
+# Данные: RetailRocket скачивается командой `make data` (290 МБ)
+data/
 *.parquet
+
+# Графики, скриншоты и PDF НЕ игнорируются намеренно: README ссылается на
+# них, и без них отчёт на GitHub показывает битые картинки. Суммарно ~2.5 МБ.
