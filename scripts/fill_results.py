@@ -52,6 +52,8 @@ METHOD_RU = {
     "compiler_L0": "компилятор, уровень 0",
     "compiler": "компилятор, уровни 0+1",
     "compiler_selected": "компилятор + отбор на val",
+    "compiler_covisit": "+ совстречаемость (протекающая)",
+    "compiler_covisit_honest": "+ совстречаемость (честная)",
 }
 
 

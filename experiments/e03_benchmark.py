@@ -41,6 +41,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from afe.covisit import CovisitConfig, build_cooccurrence, covisit_features  # noqa: E402
 from afe.datasets.retailrocket import RetailRocketConfig  # noqa: E402
 from afe.datasets.retailrocket import load as load_rr
 from afe.datasets.synthetic import SyntheticConfig, generate  # noqa: E402
@@ -65,6 +66,8 @@ HUMAN_HOURS = {
     "compiler_L0": 0.0,
     "compiler": 0.0,
     "compiler_selected": 0.0,
+    "compiler_covisit": 0.5,   # схема мета-пути задаётся человеком один раз
+    "compiler_covisit_honest": 0.5,
 }
 
 
@@ -106,6 +109,43 @@ def _build(name, log, splits, schema, stream, verbose):
         fs = enumerate_features(schema, EnumerationConfig(), keys=keys)
         X = FeatureCompiler(fs, n_etypes=log.n_etypes).transform(stream, verbose=verbose)
         return X, fs.names(log.etype_names), time.perf_counter() - t0
+
+    if name == "compiler_covisit_honest":
+        # ЧЕСТНАЯ версия: матрица строится по ПЕРВОЙ ПОЛОВИНЕ train, а
+        # обучение идёт только по второй. Тогда для каждой обучающей строки
+        # артефакт лежит строго в прошлом, как и на тесте.
+        #
+        # Зачем: у обычной версии матрица строится по всему train-периоду и
+        # для обучающей строки из его середины содержит события её будущего.
+        # Замерено: AUC признака 0.5805 на train против 0.5268 на test,
+        # разрыв +0.0537. Модель переоценивает признак, и итог падает
+        # значимо — 0.3854 против 0.4117 у чистого компилятора.
+        fs = enumerate_features(schema, EnumerationConfig())
+        X = FeatureCompiler(fs, n_etypes=log.n_etypes).transform(stream, verbose=verbose)
+        names = fs.names(log.etype_names)
+        t_mid = int(log.t[0] + 0.5 * (splits.t_train_end - log.t[0]))
+        ccfg = CovisitConfig(top_k=500, history_window=50, position_window=20,
+                             max_events_per_user=100)
+        nbr_idx, nbr_w = build_cooccurrence(log, t_mid, ccfg, verbose=verbose)
+        Xc, cnames = covisit_features(log, splits.queries, nbr_idx, nbr_w,
+                                      ccfg, verbose=verbose)
+        return (np.hstack([X, Xc]), names + cnames, time.perf_counter() - t0)
+
+    if name == "compiler_covisit":
+        # компилятор + мета-путь длины 3 (user -> item' -> item).
+        # Матрица совстречаемости строится СТРОГО по train-периоду и
+        # дальше является фиксированным артефактом, поэтому для val и test
+        # не содержит ни одного события из их окон.
+        fs = enumerate_features(schema, EnumerationConfig())
+        X = FeatureCompiler(fs, n_etypes=log.n_etypes).transform(stream, verbose=verbose)
+        names = fs.names(log.etype_names)
+        ccfg = CovisitConfig(top_k=500, history_window=50, position_window=20,
+                             max_events_per_user=100)
+        nbr_idx, nbr_w = build_cooccurrence(log, splits.t_train_end, ccfg,
+                                            verbose=verbose)
+        Xc, cnames = covisit_features(log, splits.queries, nbr_idx, nbr_w,
+                                      ccfg, verbose=verbose)
+        return (np.hstack([X, Xc]), names + cnames, time.perf_counter() - t0)
 
     if name in ("compiler_L0", "compiler", "compiler_selected"):
         cfg = EnumerationConfig()
@@ -153,7 +193,7 @@ def _result_dict(r) -> dict:
 def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
         n_negatives=23, n_negatives_eval=49, n_trials=12, seed=0,
         neg_source="mixed", prediction_gap_days=1.0, dataset="synthetic",
-        checkpoint_path: Path | None = None, verbose=True) -> dict:
+        checkpoint_path: Path | None = None, methods=None, verbose=True) -> dict:
     """checkpoint_path — куда дописывать результаты ПОСЛЕ КАЖДОГО МЕТОДА.
 
     Первая версия писала JSON только по завершении всех методов, и когда
@@ -175,6 +215,7 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
         print("\nвременные сплиты:")
         print(splits.describe())
 
+    methods = list(methods) if methods else list(METHODS)
     cfg_out = {"dataset": dataset, "n_events": log.n_events,
                "n_positives": n_positives,
                "n_positives_train": n_positives_train,
@@ -183,7 +224,7 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
                "prediction_gap_days": prediction_gap_days, "seed": seed}
     stream = build_stream(log, splits.queries)
     results = []
-    for name in METHODS:
+    for name in methods:
         if verbose:
             print(f"\n[признаки] {name}", flush=True)
         X, names, fsec = _build(name, log, splits, schema, stream, verbose)
@@ -191,9 +232,20 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
             print(f"[модель] {name}: {X.shape[1]} признаков", flush=True)
         fn = (evaluate_with_selection if name == "compiler_selected"
               else evaluate_feature_set)
+        # у честной версии совстречаемости обучаемся только на второй
+        # половине train: для первой артефакт ещё не был бы построен
+        tr_idx = splits.idx_train
+        if name == "compiler_covisit_honest":
+            t_mid = int(log.t[0] + 0.5 * (splits.t_train_end - log.t[0]))
+            keep = splits.queries.t[tr_idx] >= t_mid
+            tr_idx = tr_idx[keep]
+            if verbose:
+                print(f"    обучающих строк: {len(tr_idx):,} из "
+                      f"{len(splits.idx_train):,} (только вторая половина train)",
+                      flush=True)
         r = fn(
             name,
-            splits.rows(X, "train"), splits.y("train"),
+            X[tr_idx], splits.queries.y[tr_idx],
             splits.rows(X, "val"), splits.y("val"),
             splits.rows(X, "test"), splits.y("test"), splits.group("test"),
             n_trials=n_trials, seed=seed, feature_names=names,
@@ -214,7 +266,7 @@ def run(n_events=1_000_000, n_positives=4_000, n_positives_train=14_000,
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
             checkpoint_path.write_text(json.dumps(
                 {"config": cfg_out, "results": [_result_dict(x) for x in results],
-                 "partial": len(results) < len(METHODS)},
+                 "partial": len(results) < len(methods)},
                 indent=2, ensure_ascii=False))
         if verbose:
             m = r.test_metrics
@@ -284,6 +336,8 @@ if __name__ == "__main__":
                          "реалистичным, иначе Recall@10 насыщается")
     ap.add_argument("--n-trials", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--methods", nargs="+", default=None,
+                    help="какие методы считать; по умолчанию все")
     ap.add_argument("--prediction-gap-days", type=float, default=1.0,
                     help="признаки считаются на t - gap; 0 = постановка "
                          "внутрисессионной детекции намерения")
@@ -297,6 +351,11 @@ if __name__ == "__main__":
     suffix = "" if a.neg_source == "mixed" else f"_{a.neg_source}"
     if a.prediction_gap_days == 0:
         suffix += "_nogap"
+    # Частичный прогон пишет в ОТДЕЛЬНЫЙ файл: иначе контрольные точки
+    # затирают полную таблицу одним методом. Результаты сливаются потом
+    # скриптом scripts/merge_bench.py.
+    if a.methods:
+        suffix += "_" + "+".join(sorted(a.methods))
     out_path = OUT / f"e03_benchmark_{a.dataset}{suffix}.json"
 
     res = run(checkpoint_path=out_path,
@@ -305,7 +364,7 @@ if __name__ == "__main__":
               n_negatives=a.n_negatives, n_negatives_eval=a.n_negatives_eval,
               n_trials=a.n_trials, seed=a.seed,
               neg_source=a.neg_source, dataset=a.dataset,
-              prediction_gap_days=a.prediction_gap_days)
+              prediction_gap_days=a.prediction_gap_days, methods=a.methods)
     report(res)
     OUT.mkdir(exist_ok=True)
     # отдельный файл на протокол: вырожденный прогон сохраняется как
