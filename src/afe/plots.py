@@ -1,4 +1,27 @@
-"""Графики для отчёта. Каждый читает JSON соответствующего эксперимента."""
+"""
+Графики для отчёта.
+
+Правила, которым подчинены все фигуры здесь:
+
+  ОДНА ОСЬ НА ГРАФИК. Двойная ось (две шкалы y) запрещена: выравнивание
+  шкал произвольно, и график начинает показывать корреляцию, которой в
+  данных нет. Первая версия e02 именно этим и грешила — log-loss и AUC на
+  двух автомасштабированных осях выглядели одинаково изменчивыми, хотя
+  весь смысл был в том, что размах AUC на порядок меньше. Две величины
+  разного масштаба приводятся к общей базе и рисуются на одной оси.
+
+  ПОДПИСИ ВЫБОРОЧНО И БЕЗ НАЛОЖЕНИЙ. Число у каждой точки — шум. Там, где
+  подписей много (фронт Парето, сравнение методов), категории выносятся на
+  собственную ось горизонтальными полосами, и наложиться физически не могут.
+
+  ПАЛИТРА ПРОВЕРЕНА, А НЕ ПОДОБРАНА НА ГЛАЗ. Слоты взяты из валидированного
+  набора: синий #2a78d6 и оранжевый #eb6834 дают разделение CVD ΔE 24.7 при
+  пороге 8. Прежняя пара (#1f4e79, #c0504d) проверку проваливала: синий
+  выходил из диапазона светлоты и читался как серый.
+
+  ТОНКИЕ ШТРИХИ, СПЛОШНАЯ СЕТКА НА ТОН ОТ ФОНА, текст нейтральными
+  чернилами, а не цветом серии.
+"""
 
 from __future__ import annotations
 
@@ -8,26 +31,53 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
 
 REPORTS = Path(__file__).resolve().parents[2] / "reports"
 FIGS = REPORTS / "figures"
 
-# единый стиль: без лишних рамок, читаемые подписи, без цветового шума
+#: слоты категориальной палитры (проверены validate_palette.js)
+C1 = "#2a78d6"   # слот 1, синий
+C2 = "#eb6834"   # слот 2, оранжевый
+C3 = "#1baf7a"   # слот 3, аква
+INK = "#1a1a1a"       # основной текст
+INK_MUTED = "#6b7280"  # вторичный текст
+GRID = "#e5e7eb"      # сетка, на тон от фона
+MARK_MUTED = "#b9c0c9"  # приглушённый штрих
+
+#: Ширина фигуры в дюймах, равная печатной ширине A4 с полями (178 мм).
+#: Если рисовать шире, PDF ужмёт картинку, и подписи 8pt превратятся в
+#: эффективные 5pt — на печати нечитаемо.
+PAGE_W = 7.3
+
 plt.rcParams.update({
-    "figure.dpi": 140, "savefig.dpi": 140, "savefig.bbox": "tight",
-    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 9,
+    "figure.dpi": 150, "savefig.dpi": 150, "savefig.bbox": "tight",
+    "savefig.facecolor": "white",
+    "font.size": 8.5, "axes.titlesize": 8.5, "axes.labelsize": 8,
+    "xtick.labelsize": 7, "ytick.labelsize": 7,
+    "text.color": INK, "axes.labelcolor": INK,
+    "xtick.color": INK_MUTED, "ytick.color": INK_MUTED,
+    "axes.edgecolor": GRID, "axes.linewidth": 0.8,
     "axes.spines.top": False, "axes.spines.right": False,
-    "axes.grid": True, "grid.alpha": 0.25, "grid.linewidth": 0.5,
-    "legend.frameon": False, "figure.autolayout": False,
+    "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.7,
+    "grid.linestyle": "-", "grid.alpha": 1.0,
+    "legend.frameon": False, "legend.fontsize": 7,
+    "lines.linewidth": 2.0, "lines.markersize": 4.5,
 })
-C_MAIN, C_ALT, C_BAD, C_MUTE = "#1f4e79", "#c0504d", "#8c8c8c", "#bfbfbf"
 
 
 def _load(name: str):
     p = REPORTS / name
     return json.loads(p.read_text()) if p.exists() else None
+
+
+def _save(fig, name: str) -> Path:
+    FIGS.mkdir(parents=True, exist_ok=True)
+    out = FIGS / name
+    fig.savefig(out)
+    plt.close(fig)
+    return out
 
 
 def fig_window_vs_decay() -> Path | None:
@@ -37,129 +87,210 @@ def fig_window_vs_decay() -> Path | None:
         return None
     from .kernels import DAY, DEFAULT_HALFLIVES, fit_window_as_decay_mix
 
-    fig, ax = plt.subplots(1, 3, figsize=(10.5, 3.0))
+    fig, ax = plt.subplots(1, 3, figsize=(PAGE_W, 2.7))
 
     f = fit_window_as_decay_mix(7 * DAY, DEFAULT_HALFLIVES)
     s_d = f["s"] / DAY
-    ax[0].plot(s_d, f["target"], color=C_MAIN, lw=1.8, label="окно 7 дней: 1[s<W]")
-    ax[0].plot(s_d, f["approx"], color=C_BAD, lw=1.2, ls="--",
-               label="лучшая смесь 8 экспонент")
-    ax[0].axvline(7, color=C_MUTE, lw=0.8, ls=":")
+    ax[0].plot(s_d, f["target"], color=C1, lw=2.2, label="окно 7 дней")
+    ax[0].plot(s_d, f["approx"], color=C2, lw=1.6, ls="--",
+               label="смесь 8 экспонент")
+    ax[0].axvline(7, color=MARK_MUTED, lw=0.8, zorder=0)
     ax[0].set_xlim(0, 20)
-    ax[0].set_xlabel("возраст события s, дней")
+    ax[0].set_ylim(-0.25, 1.35)
+    ax[0].set_xlabel("возраст события, дней")
     ax[0].set_ylabel("вес ядра")
     ax[0].set_title("A. Разрыв не воспроизводится")
-    ax[0].legend(fontsize=7.5, loc="upper right")
+    # верх справа свободен: обе кривые там у нуля
+    ax[0].legend(loc="upper right", borderaxespad=0.4)
 
     cv = d["part_a"]["convergence"]
     k = [r["n_kernels"] for r in cv]
-    ax[1].plot(k, [r["sup"] for r in cv], "o-", color=C_BAD, ms=3.5,
-               label="sup-ошибка")
-    ax[1].plot(k, [r["rel_l2"] for r in cv], "s-", color=C_MAIN, ms=3.5,
+    ax[1].plot(k, [r["sup"] for r in cv], "o-", color=C2, label="sup-ошибка")
+    ax[1].plot(k, [r["rel_l2"] for r in cv], "s-", color=C1,
                label="относительная L2")
-    ax[1].set_xlabel("число экспонент K")
-    ax[1].set_ylabel("ошибка")
-    ax[1].set_ylim(0, 0.75)
-    ax[1].set_title("B. sup-ошибка не убывает с K")
-    ax[1].legend(fontsize=7.5)
+    ax[1].set_ylim(0, 0.8)
+    ax[1].set_xlabel("число экспонент")
+    ax[1].set_ylabel("ошибка приближения")
+    ax[1].set_title("B. sup-ошибка не убывает")
+    ax[1].legend(loc="upper right", borderaxespad=0.4)
+    # подпись только у крайней точки, а не у каждой
+    ax[1].annotate(f"{cv[-1]['sup']:.2f}", (k[-1], cv[-1]["sup"]),
+                   xytext=(-4, 8), textcoords="offset points",
+                   fontsize=7.5, color=INK_MUTED, ha="right")
 
-    ax2 = ax[2]
-    ax2.plot(k, [r["coef_l1"] for r in cv], "o-", color=C_BAD, ms=3.5)
-    ax2.set_yscale("log")
-    ax2.set_xlabel("число экспонент K")
-    ax2.set_ylabel(r"$\|c\|_1$")
-    ax2.set_title("C. Обусловленность разрушается")
-    FIGS.mkdir(parents=True, exist_ok=True)
-    out = FIGS / "e01_window_vs_decay.png"
-    fig.savefig(out)
-    plt.close(fig)
-    return out
+    ax[2].plot(k, [r["coef_l1"] for r in cv], "o-", color=C1)
+    ax[2].set_yscale("log")
+    ax[2].set_xlabel("число экспонент")
+    ax[2].set_ylabel("норма коэффициентов")
+    ax[2].set_title("C. Обусловленность разрушается")
+    ax[2].annotate(f"{cv[-1]['coef_l1']:.0f}", (k[-1], cv[-1]["coef_l1"]),
+                   xytext=(-6, -20), textcoords="offset points",
+                   fontsize=7.5, color=INK_MUTED, ha="right")
+
+    fig.tight_layout(w_pad=2.2)
+    return _save(fig, "e01_window_vs_decay.png")
 
 
 def fig_timescales() -> Path | None:
-    """Эксперимент 2A: log-loss идентифицирует масштаб, AUC — нет."""
+    """Эксперимент 2A: log-loss идентифицирует масштаб, AUC — нет.
+
+    ОДНА ОСЬ. Обе метрики приведены к общей базе — «насколько процентов
+    хуже лучшего значения». Только в таком виде видно то, ради чего график
+    и нужен: размах log-loss около 25%, размах AUC около 1.5%, то есть на
+    порядок меньше. На двух автомасштабированных осях (как было в первой
+    версии) обе кривые выглядели одинаково изменчивыми, и график
+    опровергал собственную подпись.
+    """
     d = _load("e02_timescales.json")
     if d is None:
         return None
     cases = d["part_a"]["cases"]
-    fig, axes = plt.subplots(1, len(cases), figsize=(3.4 * len(cases), 3.0))
+    fig, axes = plt.subplots(1, len(cases), figsize=(PAGE_W, 2.9),
+                             sharey=True)
     if len(cases) == 1:
         axes = [axes]
-    for ax, c in zip(axes, cases):
-        cur = np.array(c["curve"])          # [полупериод, logloss, auc, доля нулей]
+
+    ll_spreads, au_spreads = [], []
+    for ci, (ax, c) in enumerate(zip(axes, cases, strict=False)):
+        cur = np.array(c["curve"])          # [полупериод, logloss, auc, нулей]
         hl, ll, au = cur[:, 0], cur[:, 1], cur[:, 2]
-        ax.plot(hl, ll, "o-", color=C_MAIN, ms=3, label="log-loss")
-        ax.axvline(c["true_halflife_days"], color=C_MUTE, lw=1.2, ls="--",
-                   label=f"истина {c['true_halflife_days']:g}д")
+        ll_rel = (ll - np.nanmin(ll)) / np.nanmin(ll) * 100
+        au_rel = (np.nanmax(au) - au) / np.nanmax(au) * 100
+        ll_spreads.append(ll_rel.max())
+        au_spreads.append(au_rel.max())
+
+        ax.plot(hl, ll_rel, "o-", color=C1, label="log-loss")
+        ax.plot(hl, au_rel, "s-", color=C2, label="AUC")
+        ax.axvline(c["true_halflife_days"], color=MARK_MUTED, lw=1.0, zorder=0)
+
+        # где каждая метрика ставит оптимум — это и есть суть графика
+        i_ll, i_au = int(np.nanargmin(ll_rel)), int(np.nanargmin(au_rel))
+        ax.plot(hl[i_ll], ll_rel[i_ll], "o", color=C1, ms=11, mfc="none", mew=1.8)
+        ax.plot(hl[i_au], au_rel[i_au], "s", color=C2, ms=11, mfc="none", mew=1.8)
+
+        # найденные значения — подписями у обведённых точек, а не в
+        # заголовке: на узкой панели длинный заголовок налезает на соседнюю
+        ax.annotate(f"{hl[i_ll]:.1f}д", (hl[i_ll], ll_rel[i_ll]),
+                    xytext=(0, 14), textcoords="offset points",
+                    fontsize=7.5, color=C1, ha="center", weight="bold")
+        # подпись AUC только когда он РАСХОДИТСЯ с log-loss: там, где обе
+        # метрики находят одну точку, вторая подпись дублирует первую и
+        # налезает на ось
+        if i_au != i_ll:
+            ax.annotate(f"{hl[i_au]:.1f}д", (hl[i_au], au_rel[i_au]),
+                        xytext=(2, 12), textcoords="offset points",
+                        fontsize=7.5, color=C2, ha="left", weight="bold")
         ax.set_xscale("log")
         ax.set_xlabel("полупериод, дней")
-        ax.set_ylabel("log-loss")
-        ax.set_title(f"истина {c['true_halflife_days']:g}д -> "
-                     f"найдено {c['found_by_logloss']:.1f}д")
-        a2 = ax.twinx()
-        a2.plot(hl, au, "s-", color=C_BAD, ms=2.5, lw=1.0, alpha=0.75)
-        a2.set_ylabel("AUC", color=C_BAD)
-        a2.tick_params(axis="y", labelcolor=C_BAD, labelsize=7)
-        a2.grid(False)
-        ax.legend(fontsize=7, loc="upper center")
-    fig.suptitle("Минимум log-loss (синий) совпадает с истиной; "
-                 "AUC (красный) почти плоский", fontsize=9.5, y=1.03)
-    FIGS.mkdir(parents=True, exist_ok=True)
-    out = FIGS / "e02_timescales.png"
-    fig.savefig(out)
-    plt.close(fig)
-    return out
+        ax.set_title(f"истина {c['true_halflife_days']:g} дней")
+        if ci == 0:
+            ax.set_ylabel("хуже лучшего значения, %")
+            ax.legend(loc="upper center", borderaxespad=0.4)
+
+    fig.suptitle(
+        f"Обведён и подписан оптимум каждой метрики. Размах log-loss "
+        f"{min(ll_spreads):.0f}–{max(ll_spreads):.0f}%, AUC "
+        f"{min(au_spreads):.0f}–{max(au_spreads):.0f}%",
+        fontsize=8.5, y=1.03)
+    fig.tight_layout(w_pad=1.6)
+    return _save(fig, "e02_timescales.png")
+
+
+#: читаемые названия методов и группа, определяющая цвет
+METHOD_LABEL = {
+    "seen": "ярлык «видел айтем»",
+    "popularity": "популярность",
+    "hand": "ручные фичи, окна",
+    "hand_keys_decay": "те же ключи, сетка ядер",
+    "compiler_L0": "компилятор, ур. 0",
+    "compiler": "компилятор, ур. 0+1",
+    "compiler_selected": "компилятор + отбор",
+    "compiler_covisit": "+ совстречаемость (протекает)",
+    "compiler_covisit_honest": "+ совстречаемость (честная)",
+}
+METHOD_GROUP = {
+    "seen": "trivial", "popularity": "trivial",
+    "hand": "hand", "hand_keys_decay": "hand",
+}
+GROUP_COLOR = {"trivial": MARK_MUTED, "hand": C2, "compiler": C1}
+GROUP_LABEL = {"trivial": "тривиальные ориентиры",
+               "hand": "ручной набор и его ключи",
+               "compiler": "компилятор"}
+
+
+def _benchmark_panel(ax, data, title: str, show_legend: bool) -> None:
+    """Горизонтальные полосы NDCG@10 с доверительными интервалами.
+
+    Категории вынесены на собственную ось — подписи наложиться не могут.
+    Значение печатается за концом уса, а не поверх полосы.
+    """
+    rs = sorted(data["results"], key=lambda r: r["test"]["ndcg@10"])
+    y = np.arange(len(rs))
+    vals = np.array([r["test"]["ndcg@10"] for r in rs])
+    lo = np.array([r["test"].get("ndcg@10_lo", v) for r, v in zip(rs, vals, strict=False)])
+    hi = np.array([r["test"].get("ndcg@10_hi", v) for r, v in zip(rs, vals, strict=False)])
+    groups = [METHOD_GROUP.get(r["name"], "compiler") for r in rs]
+    colors = [GROUP_COLOR[g] for g in groups]
+
+    ax.barh(y, vals, color=colors, height=0.62, zorder=2)
+    ax.errorbar(vals, y, xerr=[vals - lo, hi - vals], fmt="none",
+                ecolor=INK_MUTED, elinewidth=1.1, capsize=3, zorder=3)
+    # отступ подписи пропорционален диапазону оси: у панелей он разный,
+    # и абсолютная константа вплотную прижимала бы текст к усу
+    pad = max(hi) * 0.025
+    for yi, v, h in zip(y, vals, hi, strict=False):
+        ax.text(h + pad, yi, f"{v:.4f}", va="center", fontsize=7.5, color=INK)
+
+    ax.set_yticks(y)
+    ax.set_yticklabels([METHOD_LABEL.get(r["name"], r["name"]) for r in rs],
+                       fontsize=8)
+    ax.set_xlim(0, max(hi) * 1.22)
+    ax.set_xlabel("test NDCG@10  (ус — 95% доверительный интервал)")
+    ax.set_title(title)
+    ax.grid(axis="y", visible=False)
+
+    if show_legend:
+        from matplotlib.patches import Patch
+        seen_groups = list(dict.fromkeys(groups))
+        ax.legend(handles=[Patch(facecolor=GROUP_COLOR[g], label=GROUP_LABEL[g])
+                           for g in seen_groups],
+                  loc="lower right", borderaxespad=0.6)
 
 
 def fig_benchmark() -> Path | None:
-    """Эксперимент 3: сквозное сравнение методов."""
-    d = _load("e03_benchmark.json")
-    if d is None:
-        return None
-    rs = d["results"]
-    names = [r["name"] for r in rs]
-    fig, ax = plt.subplots(1, 3, figsize=(11.0, 3.2))
-    y = np.arange(len(names))
-    for a, key, title in (
-        (ax[0], "auc", "test AUC"),
-        (ax[1], "ndcg@10", "test NDCG@10"),
-    ):
-        v = [r["test"][key] for r in rs]
-        cols = [C_MAIN if n.startswith("compiler") else
-                (C_ALT if n == "hand" else C_MUTE) for n in names]
-        a.barh(y, v, color=cols, height=0.62)
-        a.set_yticks(y)
-        a.set_yticklabels(names, fontsize=7.5)
-        a.set_xlim(min(v) - 0.02 * (max(v) - min(v) + 1e-9), max(v) + 0.005)
-        a.set_title(title)
-        a.invert_yaxis()
-        for yi, vi in zip(y, v):
-            a.text(vi, yi, f" {vi:.4f}", va="center", fontsize=7)
+    """Эксперимент 3: сравнение методов на реальных данных и на синтетике.
 
-    nf = [r["n_features"] for r in rs]
-    au = [r["test"]["auc"] for r in rs]
-    for n, x, yv in zip(names, nf, au):
-        c = C_MAIN if n.startswith("compiler") else (C_ALT if n == "hand" else C_MUTE)
-        ax[2].scatter(max(x, 1), yv, s=38, color=c)
-        ax[2].annotate(n, (max(x, 1), yv), fontsize=6.5,
-                       textcoords="offset points", xytext=(4, 3))
-    ax[2].set_xscale("log")
-    ax[2].set_xlabel("число признаков")
-    ax[2].set_ylabel("test AUC")
-    ax[2].set_title("качество против размера набора")
-    FIGS.mkdir(parents=True, exist_ok=True)
-    out = FIGS / "e03_benchmark.png"
-    fig.savefig(out)
-    plt.close(fig)
-    return out
+    Первая версия читала устаревший e03_benchmark.json с числами первого,
+    давно отменённого прогона, и печатала значение поверх названия метода.
+    Здесь берутся актуальные таблицы, значения вынесены за ус, а категории
+    стоят на собственной оси.
+    """
+    rr = _load("e03_benchmark_retailrocket.json")
+    syn = _load("e03_benchmark_synthetic.json")
+    panels = [(rr, "RetailRocket: методы расходятся"),
+              (syn, "Синтетика: все упираются в потолок")]
+    panels = [(d, t) for d, t in panels if d is not None]
+    if not panels:
+        return None
+
+    # панели ОДНА ПОД ДРУГОЙ, а не рядом: на ширине A4 две панели в ряд
+    # сжимаются так, что подписи методов становятся нечитаемыми
+    fig, axes = plt.subplots(len(panels), 1, figsize=(PAGE_W, 3.3 * len(panels)))
+    if len(panels) == 1:
+        axes = [axes]
+    for i, (ax, (d, title)) in enumerate(zip(axes, panels, strict=False)):
+        _benchmark_panel(ax, d, title, show_legend=(i == 0))
+    fig.tight_layout(h_pad=2.0)
+    return _save(fig, "e03_benchmark.png")
 
 
 def fig_scaling() -> Path | None:
-    """Эксперимент 6: две оси масштабирования.
+    """Эксперимент 6: две оси масштабирования, каждая на своём графике.
 
-    Левая панель — длина лога: здесь предсказание о плато НЕ подтвердилось,
-    и панель это показывает честно. Правая — горизонт признака: вот где
-    различие принципиальное, и ради неё график и переделан.
+    Левая панель — длина лога, где предсказание о плато НЕ подтвердилось.
+    Правая — горизонт признака, где различие принципиальное. Обе величины
+    на правой панели нормированы на первую точку, поэтому сравниваются
+    на одной оси, без второй шкалы.
     """
     d = _load("e06_scaling.json")
     if d is None:
@@ -168,85 +299,111 @@ def fig_scaling() -> Path | None:
     n = np.array([r["n_events"] for r in p], float)
     sc = np.array([r["compiler_peak_state_bytes"] for r in p], float) / 2**20
     hb = np.array([r["hand_window_state_bytes"] for r in p], float) / 2**20
+    t = np.array([r["compiler_scan_seconds"] for r in p], float)
 
     pb = d.get("part_b")
     ncol = 3 if pb else 2
-    fig, ax = plt.subplots(1, ncol, figsize=(4.2 * ncol, 3.3))
+    fig, ax = plt.subplots(1, ncol, figsize=(PAGE_W, 2.8))
 
-    ax[0].plot(n, sc, "o-", color=C_MAIN, ms=4, label="компилятор (затухания)")
-    ax[0].plot(n, hb, "s-", color=C_BAD, ms=4, label="жёсткие окна (CSR событий)")
-    ax[0].set_xscale("log"); ax[0].set_yscale("log")
+    ax[0].plot(n, sc, "o-", color=C1, label="компилятор")
+    ax[0].plot(n, hb, "s-", color=C2, label="жёсткие окна")
+    # явные деления: автоматические минорные метки лог-шкалы слипаются
+    # у правого края ("3x10^6 4x10^6")
+    ticks = [f"{v / 1e6:g}M" for v in n]
+    ax[0].set_xscale("log")
+    ax[0].set_yscale("log")
+    ax[0].set_xticks(n)
+    ax[0].set_xticklabels(ticks)
+    ax[0].minorticks_off()
     ax[0].set_xlabel("событий в логе")
     ax[0].set_ylabel("память состояния, МиБ")
-    ax[0].set_title("A. Длина лога: плато НЕТ\n(предсказание не подтвердилось)",
-                    fontsize=9)
-    ax[0].legend(fontsize=7.5)
+    ax[0].set_title("A. Длина лога: плато нет")
+    ax[0].legend(loc="lower right", borderaxespad=0.4)
 
-    t = np.array([r["compiler_scan_seconds"] for r in p], float)
-    ax[1].plot(n, t, "o-", color=C_MAIN, ms=4, label="время прохода")
-    ax[1].plot(n, t[0] * n / n[0], ":", color=C_MUTE, lw=1.2, label="линейный рост")
-    ax[1].set_xscale("log"); ax[1].set_yscale("log")
-    ax[1].set_xlabel("событий в логе"); ax[1].set_ylabel("секунды")
-    ax[1].set_title("Время прохода линейно", fontsize=9)
-    ax[1].legend(fontsize=7.5)
+    ax[1].plot(n, t, "o-", color=C1, label="замерено")
+    ax[1].plot(n, t[0] * n / n[0], "-", color=MARK_MUTED, lw=1.2,
+               label="линейный рост")
+    ax[1].set_xscale("log")
+    ax[1].set_yscale("log")
+    ax[1].set_xticks(n)
+    ax[1].set_xticklabels(ticks)
+    ax[1].minorticks_off()
+    ax[1].set_xlabel("событий в логе")
+    ax[1].set_ylabel("время прохода, с")
+    ax[1].set_title("B. Время прохода линейно")
+    ax[1].legend(loc="upper left", borderaxespad=0.4)
 
     if pb:
         h = np.array([r["horizon_days"] for r in pb["rows"]], float)
-        cb = np.array([r["compiler_state_bytes"] for r in pb["rows"]], float) / 2**20
-        wb = np.array([r["window_state_bytes"] for r in pb["rows"]], float) / 2**20
-        # нормируем на первую точку: важна форма зависимости, а не абсолют
-        ax[2].plot(h, cb / cb[0], "o-", color=C_MAIN, ms=4, label="компилятор")
-        ax[2].plot(h, wb / wb[0], "s-", color=C_BAD, ms=4, label="жёсткие окна")
+        cb = np.array([r["compiler_state_bytes"] for r in pb["rows"]], float)
+        wb = np.array([r["window_state_bytes"] for r in pb["rows"]], float)
+        ax[2].plot(h, cb / cb[0], "o-", color=C1, label="компилятор")
+        ax[2].plot(h, wb / wb[0], "s-", color=C2, label="жёсткие окна")
         ax[2].set_xscale("log")
+        ax[2].set_xticks(h)
+        ax[2].set_xticklabels([f"{v:g}" for v in h])
+        ax[2].minorticks_off()
         ax[2].set_xlabel("горизонт признака, дней")
-        ax[2].set_ylabel("память относительно горизонта 1 день")
-        ax[2].set_title("B. Горизонт признака:\nвот здесь различие", fontsize=9)
-        ax[2].legend(fontsize=7.5)
+        ax[2].set_ylabel("память, × от горизонта 1 день")
+        ax[2].set_title("C. Горизонт признака")
+        ax[2].legend(loc="upper left", borderaxespad=0.4)
         ax[2].annotate(f"×{wb[-1] / wb[0]:.1f}", (h[-1], wb[-1] / wb[0]),
-                       fontsize=8, color=C_BAD, xytext=(-26, 4),
-                       textcoords="offset points")
+                       xytext=(-30, 2), textcoords="offset points",
+                       fontsize=8, color=INK)
         ax[2].annotate(f"×{cb[-1] / cb[0]:.2f}", (h[-1], cb[-1] / cb[0]),
-                       fontsize=8, color=C_MAIN, xytext=(-30, -12),
-                       textcoords="offset points")
+                       xytext=(-32, 8), textcoords="offset points",
+                       fontsize=8, color=INK)
 
-    FIGS.mkdir(parents=True, exist_ok=True)
-    out = FIGS / "e06_scaling.png"
-    fig.savefig(out)
-    plt.close(fig)
-    return out
+    fig.tight_layout(w_pad=2.4)
+    return _save(fig, "e06_scaling.png")
 
 
 def fig_pareto() -> Path | None:
-    """Эксперимент 7: качество против бюджета памяти."""
+    """Эксперимент 7: что даёт каждый добавленный ключ.
+
+    Первая версия рисовала точки в осях «память против качества» с
+    подписью у каждой. Четыре последних ключа оказывались в одной точке, и
+    пять подписей наложились в нечитаемую кляксу. Здесь ключи вынесены на
+    собственную ось в порядке добавления: наложиться невозможно, а
+    стоимость каждого шага указана в подписи строки.
+    """
     d = _load("e07_budget.json")
     if d is None:
         return None
     pts = d["pareto"]
+    y = np.arange(len(pts))
+    vals = np.array([p["metrics"]["ndcg@10"] for p in pts])
     mem = [p["state_mib"] for p in pts]
-    val = [p["metrics"]["ndcg@10"] for p in pts]
-    fig, ax = plt.subplots(figsize=(5.2, 3.4))
-    ax.plot(mem, val, "o-", color=C_MAIN, ms=4)
-    for p, m, v in zip(pts, mem, val):
-        if p.get("label"):
-            ax.annotate(p["label"], (m, v), fontsize=6.5,
-                        textcoords="offset points", xytext=(5, -2))
-    if d.get("hand_reference"):
-        h = d["hand_reference"]
-        ax.scatter([h["state_mib"]], [h["metrics"]["ndcg@10"]], marker="*",
-                   s=140, color=C_ALT, zorder=5, label="ручной набор")
-        ax.legend(fontsize=7.5)
-    ax.set_xscale("log")
-    ax.set_xlabel("память состояния, МиБ")
-    ax.set_ylabel("test NDCG@10")
-    ax.set_title("Фронт Парето: качество против бюджета памяти")
-    FIGS.mkdir(parents=True, exist_ok=True)
-    out = FIGS / "e07_pareto.png"
-    fig.savefig(out)
-    plt.close(fig)
-    return out
+    labels = [f"{p['added']}   ({m:,.0f} МиБ)".replace(",", " ")
+              for p, m in zip(pts, mem, strict=False)]
+
+    fig, ax = plt.subplots(figsize=(PAGE_W, 3.9))
+    ax.barh(y, vals, color=C1, height=0.6, zorder=2)
+    pad = max(vals) * 0.02
+    for yi, v in zip(y, vals, strict=False):
+        ax.text(v + pad, yi, f"{v:.4f}", va="center", fontsize=7.5, color=INK)
+
+    h = d.get("hand_reference")
+    if h:
+        hv = h["metrics"]["ndcg@10"]
+        ax.axvline(hv, color=C2, lw=1.6, zorder=1,
+                   label=f"ручной набор: {hv:.4f} при {h['state_mib']:.0f} МиБ")
+        # верх справа: там полосы короткие, легенда ничего не перекрывает
+        ax.legend(loc="upper right", borderaxespad=0.6)
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0, max(vals) * 1.15)
+    ax.set_xlabel("test NDCG@10 после добавления ключа")
+    ax.set_title("Ключи в порядке добавления жадностью «польза / память»")
+    ax.grid(axis="y", visible=False)
+    fig.tight_layout()
+    return _save(fig, "e07_pareto.png")
 
 
-ALL = [fig_window_vs_decay, fig_timescales, fig_benchmark, fig_scaling, fig_pareto]
+ALL = [fig_window_vs_decay, fig_timescales, fig_benchmark, fig_scaling,
+       fig_pareto]
 
 
 def build_all(verbose: bool = True) -> list[Path]:
@@ -254,7 +411,7 @@ def build_all(verbose: bool = True) -> list[Path]:
     for fn in ALL:
         try:
             p = fn()
-        except Exception as e:                      # график не должен ронять сборку
+        except Exception as e:                  # график не должен ронять сборку
             if verbose:
                 print(f"  {fn.__name__}: ошибка {type(e).__name__}: {e}")
             continue
