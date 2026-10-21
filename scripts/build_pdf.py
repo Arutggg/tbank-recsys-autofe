@@ -35,26 +35,25 @@ CSS = """
 }
 body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
        font-size: 9.6pt; line-height: 1.52; color: #1a1a1a; }
-h1 { font-size: 20pt; margin: 0 0 4pt 0; color: #10243a; letter-spacing: -0.3pt; }
-h2 { font-size: 13pt; margin: 20pt 0 6pt 0; color: #1f4e79;
-     border-bottom: 1px solid #d8dee6; padding-bottom: 3pt;
+h1 { font-size: 20pt; margin: 0 0 4pt 0; color: #111; letter-spacing: -0.3pt; }
+h2 { font-size: 13pt; margin: 20pt 0 6pt 0; color: #111;
+     border-bottom: 0.6px solid #cfcfcf; padding-bottom: 3pt;
      break-after: avoid; }
-h3 { font-size: 10.8pt; margin: 13pt 0 4pt 0; color: #24435f; break-after: avoid; }
+h3 { font-size: 10.8pt; margin: 13pt 0 4pt 0; color: #111; break-after: avoid; }
 p { margin: 5pt 0; }
-blockquote { margin: 10pt 0; padding: 8pt 12pt; background: #f4f7fa;
-             border-left: 3px solid #1f4e79; }
+blockquote { margin: 8pt 0; padding: 0; }
 blockquote p { margin: 3pt 0; }
+/* таблицы в книжном стиле: без заливок, только линии сверху, под шапкой и снизу */
 table { border-collapse: collapse; width: 100%; margin: 8pt 0;
-        font-size: 8.6pt; break-inside: avoid; }
-th { background: #eef2f7; text-align: left; padding: 4pt 6pt;
-     border-bottom: 1.2px solid #b9c5d2; font-weight: 600; }
-td { padding: 3.5pt 6pt; border-bottom: 0.5px solid #e3e8ee; vertical-align: top; }
-tr:nth-child(even) td { background: #fafbfc; }
-code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.4pt;
-       background: #f2f4f7; padding: 1pt 3pt; border-radius: 2px; }
-pre { background: #f7f9fb; border: 0.5px solid #e0e6ec; border-radius: 3px;
-      padding: 7pt 9pt; overflow-x: auto; break-inside: avoid; }
-pre code { background: none; padding: 0; font-size: 8pt; line-height: 1.42; }
+        font-size: 8.6pt; break-inside: avoid;
+        border-top: 1px solid #333; border-bottom: 1px solid #333; }
+th { text-align: left; padding: 4pt 6pt; font-weight: 600;
+     border-bottom: 0.6px solid #333; }
+td { padding: 3pt 6pt; vertical-align: top; }
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.4pt; }
+pre { border-left: 1.5px solid #cfcfcf; padding: 2pt 0 2pt 9pt;
+      overflow-x: auto; break-inside: avoid; }
+pre code { font-size: 8pt; line-height: 1.42; }
 img { max-width: 100%; display: block; margin: 8pt auto; }
 /* скриншоты консоли: ограничение по высоте, чтобы страница A4 не ломалась */
 img[src^="data:image/png"] { max-height: 165mm; }
@@ -63,9 +62,9 @@ img.math-inline { display: inline; vertical-align: -0.35em; margin: 0 1pt;
                   max-height: 1.25em; }
 ul, ol { margin: 5pt 0; padding-left: 17pt; }
 li { margin: 2pt 0; }
-hr { border: none; border-top: 0.6px solid #dde3ea; margin: 14pt 0; }
-a { color: #1f4e79; text-decoration: none; }
-strong { color: #0d1f30; }
+hr { border: none; border-top: 0.6px solid #cfcfcf; margin: 14pt 0; }
+a { color: inherit; text-decoration: none; }
+strong { color: inherit; }
 """
 
 
@@ -126,7 +125,7 @@ def build(verbose: bool = True) -> Path:
     html_body = markdown.markdown(
         md_text,
         extensions=["tables", "fenced_code", "codehilite", "attr_list", "sane_lists"],
-        extension_configs={"codehilite": {"noclasses": True, "pygments_style": "friendly"}},
+        extension_configs={"codehilite": {"noclasses": True, "use_pygments": False}},
     )
     html_body = embed_images(html_body)
     html = (f'<!doctype html><html lang="ru"><head><meta charset="utf-8">'

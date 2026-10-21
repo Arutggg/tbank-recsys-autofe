@@ -91,17 +91,17 @@ def fig_window_vs_decay() -> Path | None:
 
     f = fit_window_as_decay_mix(7 * DAY, DEFAULT_HALFLIVES)
     s_d = f["s"] / DAY
-    ax[0].plot(s_d, f["target"], color=C1, lw=2.2, label="окно 7 дней")
+    ax[0].plot(s_d, f["target"], color=C1, lw=2.2, label="окно 7 дн.")
     ax[0].plot(s_d, f["approx"], color=C2, lw=1.6, ls="--",
-               label="смесь 8 экспонент")
+               label="8 экспонент")
     ax[0].axvline(7, color=MARK_MUTED, lw=0.8, zorder=0)
     ax[0].set_xlim(0, 20)
     ax[0].set_ylim(-0.25, 1.35)
     ax[0].set_xlabel("возраст события, дней")
     ax[0].set_ylabel("вес ядра")
     ax[0].set_title("A. Разрыв не воспроизводится")
-    # верх справа свободен: обе кривые там у нуля
-    ax[0].legend(loc="upper right", borderaxespad=0.4)
+    # справа по центру пусто: после 10 дней обе кривые лежат у нуля
+    ax[0].legend(loc="upper right", borderaxespad=0.3, handlelength=1.6)
 
     cv = d["part_a"]["convergence"]
     k = [r["n_kernels"] for r in cv]
@@ -115,17 +115,19 @@ def fig_window_vs_decay() -> Path | None:
     ax[1].legend(loc="upper right", borderaxespad=0.4)
     # подпись только у крайней точки, а не у каждой
     ax[1].annotate(f"{cv[-1]['sup']:.2f}", (k[-1], cv[-1]["sup"]),
-                   xytext=(-4, 8), textcoords="offset points",
-                   fontsize=7.5, color=INK_MUTED, ha="right")
+                   xytext=(0, 7), textcoords="offset points",
+                   fontsize=7.5, color=INK_MUTED, ha="center")
 
     ax[2].plot(k, [r["coef_l1"] for r in cv], "o-", color=C1)
     ax[2].set_yscale("log")
     ax[2].set_xlabel("число экспонент")
     ax[2].set_ylabel("норма коэффициентов")
     ax[2].set_title("C. Обусловленность разрушается")
-    ax[2].annotate(f"{cv[-1]['coef_l1']:.0f}", (k[-1], cv[-1]["coef_l1"]),
-                   xytext=(-6, -20), textcoords="offset points",
-                   fontsize=7.5, color=INK_MUTED, ha="right")
+    ax[2].annotate("$%.1f\\cdot10^{%d}$" % (cv[-1]["coef_l1"] / 10 ** int(np.log10(cv[-1]["coef_l1"])),
+                                          int(np.log10(cv[-1]["coef_l1"]))),
+                   (k[-1], cv[-1]["coef_l1"]),
+                   xytext=(0, -14), textcoords="offset points",
+                   fontsize=7.5, color=INK_MUTED, ha="center")
 
     fig.tight_layout(w_pad=2.2)
     return _save(fig, "e01_window_vs_decay.png")
@@ -168,31 +170,26 @@ def fig_timescales() -> Path | None:
         ax.plot(hl[i_ll], ll_rel[i_ll], "o", color=C1, ms=11, mfc="none", mew=1.8)
         ax.plot(hl[i_au], au_rel[i_au], "s", color=C2, ms=11, mfc="none", mew=1.8)
 
-        # найденные значения — подписями у обведённых точек, а не в
-        # заголовке: на узкой панели длинный заголовок налезает на соседнюю
-        ax.annotate(f"{hl[i_ll]:.1f}д", (hl[i_ll], ll_rel[i_ll]),
-                    xytext=(0, 14), textcoords="offset points",
-                    fontsize=7.5, color=C1, ha="center", weight="bold")
-        # подпись AUC только когда он РАСХОДИТСЯ с log-loss: там, где обе
-        # метрики находят одну точку, вторая подпись дублирует первую и
-        # налезает на ось
-        if i_au != i_ll:
-            ax.annotate(f"{hl[i_au]:.1f}д", (hl[i_au], au_rel[i_au]),
-                        xytext=(2, 12), textcoords="offset points",
-                        fontsize=7.5, color=C2, ha="left", weight="bold")
+        # найденные оптимумы — текстом в свободном верхнем правом углу:
+        # подписи у самих точек налезали на кривые у края оси
+        ax.text(0.97, 0.97, f"log-loss: {hl[i_ll]:.1f} дн.",
+                transform=ax.transAxes, ha="right", va="top",
+                fontsize=7.5, color=C1, weight="bold")
+        ax.text(0.97, 0.88, f"AUC: {hl[i_au]:.1f} дн.",
+                transform=ax.transAxes, ha="right", va="top",
+                fontsize=7.5, color=C2, weight="bold")
         ax.set_xscale("log")
+        ax.set_xticks([1, 10, 100])
+        ax.set_xticklabels(["1", "10", "100"])
         ax.set_xlabel("полупериод, дней")
-        ax.set_title(f"истина {c['true_halflife_days']:g} дней")
+        ax.set_title(f"истинный полупериод {c['true_halflife_days']:g} дн.")
         if ci == 0:
             ax.set_ylabel("хуже лучшего значения, %")
-            ax.legend(loc="upper center", borderaxespad=0.4)
+        ax.set_ylim(-2, 33)
 
-    fig.suptitle(
-        f"Обведён и подписан оптимум каждой метрики. Размах log-loss "
-        f"{min(ll_spreads):.0f}–{max(ll_spreads):.0f}%, AUC "
-        f"{min(au_spreads):.0f}–{max(au_spreads):.0f}%",
-        fontsize=8.5, y=1.03)
-    fig.tight_layout(w_pad=1.6)
+    h1, l1 = axes[0].get_legend_handles_labels()
+    fig.legend(h1, l1, loc="upper center", ncol=2, bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(w_pad=1.6, rect=(0, 0, 1, 0.92))
     return _save(fig, "e02_timescales.png")
 
 
@@ -315,6 +312,9 @@ def fig_scaling() -> Path | None:
     ax[0].set_xticks(n)
     ax[0].set_xticklabels(ticks)
     ax[0].minorticks_off()
+    ax[0].set_yticks([20, 50, 100, 200, 400])
+    ax[0].set_yticklabels(["20", "50", "100", "200", "400"])
+    ax[0].set_ylim(15, 500)
     ax[0].set_xlabel("событий в логе")
     ax[0].set_ylabel("память состояния, МиБ")
     ax[0].set_title("A. Длина лога: плато нет")
@@ -328,6 +328,9 @@ def fig_scaling() -> Path | None:
     ax[1].set_xticks(n)
     ax[1].set_xticklabels(ticks)
     ax[1].minorticks_off()
+    ax[1].set_yticks([1, 2, 4, 8])
+    ax[1].set_yticklabels(["1", "2", "4", "8"])
+    ax[1].set_ylim(0.7, 10)
     ax[1].set_xlabel("событий в логе")
     ax[1].set_ylabel("время прохода, с")
     ax[1].set_title("B. Время прохода линейно")
@@ -342,6 +345,7 @@ def fig_scaling() -> Path | None:
         ax[2].set_xscale("log")
         ax[2].set_xticks(h)
         ax[2].set_xticklabels([f"{v:g}" for v in h])
+        ax[2].set_ylim(0.6, 6.3)
         ax[2].minorticks_off()
         ax[2].set_xlabel("горизонт признака, дней")
         ax[2].set_ylabel("память, × от горизонта 1 день")
@@ -386,10 +390,11 @@ def fig_pareto() -> Path | None:
     h = d.get("hand_reference")
     if h:
         hv = h["metrics"]["ndcg@10"]
-        ax.axvline(hv, color=C2, lw=1.6, zorder=1,
-                   label=f"ручной набор: {hv:.4f} при {h['state_mib']:.0f} МиБ")
-        # верх справа: там полосы короткие, легенда ничего не перекрывает
-        ax.legend(loc="upper right", borderaxespad=0.6)
+        ax.axvline(hv, color=C2, lw=1.6, zorder=1)
+        # подпись слева от линии в верхней строке: там полоса нулевая,
+        # и текст ничего не перекрывает (легенда справа перечёркивалась линией)
+        ax.text(hv - 0.012, 0, f"ручной набор: {hv:.4f} при {h['state_mib']:.0f} МиБ",
+                ha="right", va="center", fontsize=7.5, color=C2)
 
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=8)
